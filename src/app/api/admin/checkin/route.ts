@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role;
-    const userCityId = session?.user?.cityId;
+    const userCityIds = session?.user?.cityIds || [];
 
     if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER", "APOIADOR"].includes(role as string)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -28,8 +28,8 @@ export async function GET(req: Request) {
       .limit(1);
 
     // Filter by city if not global
-    if (["LOCAL_LEADER", "APOIADOR"].includes(role as string) && userCityId) {
-      eventQuery = eventQuery.eq("cityId", userCityId);
+    if (["LOCAL_LEADER", "APOIADOR"].includes(role as string) && userCityIds.length > 0) {
+      eventQuery = eventQuery.in("cityId", userCityIds);
     }
 
     const { data: event, error: eventError } = await eventQuery.maybeSingle();

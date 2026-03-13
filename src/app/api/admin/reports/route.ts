@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
   const role = session?.user?.role;
-  const userCityId = session?.user?.cityId;
+  const userCityIds = session?.user?.cityIds || [];
 
   if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -38,8 +38,8 @@ export async function GET(req: Request) {
       .order("date", { ascending: true });
 
     // Isolação por cidade para roles não-globais
-    if (["LOCAL_LEADER"].includes(role as string) && userCityId) {
-      eventsQuery = eventsQuery.eq("cityId", userCityId);
+    if (["LOCAL_LEADER"].includes(role as string) && userCityIds.length > 0) {
+      eventsQuery = eventsQuery.in("cityId", userCityIds);
     }
 
     const { data: allEvents, error: eventsError } = await eventsQuery;
