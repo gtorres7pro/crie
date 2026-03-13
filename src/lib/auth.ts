@@ -43,10 +43,15 @@ export const authOptions: NextAuthOptions = {
         log(`SUPABASE CLIENT: Login attempt for: ${credentials?.email}`);
         if (!credentials?.email || !credentials?.password) return null;
 
-        const supabaseAdmin = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !supabaseServiceKey) {
+          log("CRITICAL ERROR: Supabase env vars missing during authorize");
+          return null;
+        }
+
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
         try {
           // Fetch user
