@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null as any;
 
 // GET: Listar inscritos do próximo evento LIVE
 export async function GET(req: Request) {
