@@ -352,16 +352,25 @@ export default function RegistrationPage() {
                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-3xl px-8 py-5 focus:outline-none focus:ring-2 focus:ring-amber-400/20 focus:border-amber-400/50 transition-all font-medium disabled:opacity-30 appearance-none"
               >
                 <option value="" disabled selected>Selecione sua área</option>
-                <option value="Tecnologia">Tecnologia</option>
+                <option value="Tecnologia / TI">Tecnologia / TI</option>
                 <option value="Imobiliário">Imobiliário</option>
                 <option value="Vendas / Comercial">Vendas / Comercial</option>
                 <option value="Marketing / Design">Marketing / Design</option>
                 <option value="Saúde / Bem-estar">Saúde / Bem-estar</option>
-                <option value="Educação">Educação</option>
-                <option value="Gastronomia">Gastronomia</option>
-                <option value="Retalho / Comércio">Retalho / Comércio</option>
-                <option value="Construção">Construção</option>
+                <option value="Educação / Humanas">Educação / Humanas</option>
+                <option value="Gastronomia / Alimentação">Gastronomia / Alimentação</option>
+                <option value="Comércio / Varejo">Comércio / Varejo</option>
+                <option value="Construção / Imobiliário">Construção / Imobiliário</option>
                 <option value="Finanças / Consultoria">Finanças / Consultoria</option>
+                <option value="Turismo / Viagens">Turismo / Viagens</option>
+                <option value="Agropecuária">Agropecuária</option>
+                <option value="Serviços Gerais">Serviços Gerais</option>
+                <option value="Religião / Terceiro Setor">Religião / Terceiro Setor</option>
+                <option value="Jurídica / Advocacia">Jurídica / Advocacia</option>
+                <option value="Transporte / Logística">Transporte / Logística</option>
+                <option value="Estética / Beleza">Estética / Beleza</option>
+                <option value="Gestão / Consultoria">Gestão / Consultoria</option>
+                <option value="Eventos / Entretenimento">Eventos / Entretenimento</option>
                 <option value="Outros">Outros</option>
               </select>
             </div>
