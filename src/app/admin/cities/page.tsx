@@ -1,0 +1,277 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { 
+  MapPin, 
+  Plus, 
+  Search, 
+  Globe, 
+  Building2,
+  Calendar,
+  Users,
+  Loader2,
+  X,
+  ChevronRight
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+
+export default function CitiesPage() {
+  const { data: session } = useSession();
+  const [cities, setCities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newCity, setNewCity] = useState({
+    name: "",
+    slug: "",
+    regionName: "",
+    regionalLeaderId: ""
+  });
+  const [regionalLeaders, setRegionalLeaders] = useState<any[]>([]);
+  const [status, setStatus] = useState({ type: "", message: "" });
+
+  useEffect(() => {
+    fetchCities();
+    fetchRegionalLeaders();
+  }, []);
+
+  const fetchCities = async () => {
+    try {
+      const res = await fetch("/api/admin/cities");
+      const data = await res.json();
+      if (data.cities) setCities(data.cities);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRegionalLeaders = async () => {
+    try {
+      const res = await fetch("/api/admin/users");
+      const data = await res.json();
+      if (data.users) {
+        setRegionalLeaders(data.users.filter((u: any) => u.role === "REGIONAL_LEADER"));
+      }
+    } catch (error) {
+      console.error("Error fetching regional leaders:", error);
+    }
+  };
+
+  const handleCreateCity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus({ type: "", message: "" });
+
+    try {
+      const res = await fetch("/api/admin/cities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCity),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.details ? `${data.error}: ${data.details}` : (data.error || "Erro ao criar cidade"));
+      }
+
+      setStatus({ type: "success", message: "Cidade criada com sucesso!" });
+      setIsModalOpen(false);
+      fetchCities();
+      setNewCity({ name: "", slug: "", regionName: "", regionalLeaderId: "" });
+    } catch (error: any) {
+      setStatus({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2 flex items-center gap-4">
+            <Building2 className="w-10 h-10 text-amber-500" />
+            Cidades & Expansão
+          </h1>
+          <p className="text-zinc-500 font-medium">Gestão global de unidades CRIE no mundo</p>
+        </div>
+
+        {session?.user?.role === "MASTER_ADMIN" && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-amber-500 hover:bg-amber-400 text-black px-6 py-4 rounded-2xl font-black flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
+          >
+            <Plus className="w-5 h-5" />
+            Adicionar Cidade
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {loading ? (
+          <div className="col-span-full flex justify-center py-20">
+            <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+          </div>
+        ) : cities.length === 0 ? (
+          <div className="col-span-full bg-[#111111] border border-zinc-800/50 rounded-3xl p-20 text-center">
+            <p className="text-zinc-500 font-bold">Nenhuma cidade cadastrada</p>
+          </div>
+        ) : (
+          cities.map((city, idx) => (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.05 }}
+              key={city.id}
+              className="bg-[#111111] overflow-hidden border border-zinc-800/50 rounded-3xl group relative"
+            >
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-all group-hover:scale-125">
+                 <Globe className="w-24 h-24 text-white" />
+              </div>
+
+              <div className="p-8 flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800">
+                    <MapPin className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-white">{city.name}</h3>
+                    <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">{city.regionName || "Global"}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-center justify-between text-zinc-400">
+                    <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-tighter">
+                      <Calendar className="w-4 h-4 text-zinc-600" />
+                      Eventos
+                    </div>
+                    <span className="text-white font-black">{city._count.events}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-zinc-400">
+                    <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-tighter">
+                      <Users className="w-4 h-4 text-zinc-600" />
+                      Membros
+                    </div>
+                    <span className="text-white font-black">{city._count.users}</span>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-6 border-t border-zinc-800/50">
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Líder Regional</p>
+                  <p className="text-sm font-bold text-zinc-300">
+                    {city.regionalLeader?.name || "Não vinculado"}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </div>
+
+      {/* Modal Criar Cidade */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-black text-white">Nova Cidade</h2>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 text-zinc-500 hover:text-white transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateCity} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Nome da Cidade</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="Ex: Porto"
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                    value={newCity.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
+                      setNewCity({...newCity, name, slug});
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Slug (URL)</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-zinc-400 focus:outline-none font-medium"
+                    value={newCity.slug}
+                    readOnly
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Região / Estado</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Norte"
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                    value={newCity.regionName}
+                    onChange={(e) => setNewCity({...newCity, regionName: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Vincular Líder Regional</label>
+                  <select
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
+                    value={newCity.regionalLeaderId}
+                    onChange={(e) => setNewCity({...newCity, regionalLeaderId: e.target.value})}
+                  >
+                    <option value="">Nenhum (Opcional)</option>
+                    {regionalLeaders.map(leader => (
+                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {status.message && (
+                  <div className={cn(
+                    "p-4 rounded-2xl text-sm font-bold",
+                    status.type === "success" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                  )}>
+                    {status.message}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                  Cadastrar Unidade
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

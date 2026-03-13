@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model City {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  regionName       String?
+  createdAt        DateTime @default(now())
+
+  // Relationships
+  events           Event[]
+  users            User[]   @relation("UserCities")
+  
+  // Regional Leader (optional)
+  regionalLeaderId String?
+  regionalLeader   User?    @relation("RegionalLeader", fields: [regionalLeaderId], references: [id])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String
+  password  String
+  // MASTER_ADMIN | GLOBAL_LEADER | REGIONAL_LEADER | LOCAL_LEADER | APOIADOR
+  role      String   @default("APOIADOR")
+  createdAt DateTime @default(now())
+  
+  // Multi-city relationships
+  cities    City[]   @relation("UserCities")
+  
+  // For Regional Leaders
+  ledCities City[]   @relation("RegionalLeader")
+
+  logs      AuditLog[]
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String
+  capacity    Int      @default(0)
+  price       Float    @default(0)
+  status      String   @default("LIVE") // LIVE | ARCHIVED
+  createdAt   DateTime @default(now())
+  
+  // Multi-city relation
+  cityId      String
+  city        City     @relation(fields: [cityId], references: [id])
+
+  attendees   Attendee[]
+  finances    Finance[]
+}
+
+model Attendee {
+  id             String   @id @default(cuid())
+  name           String
+  phone          String
+  email          String
+  company        String?
+  industry       String
+  interests      String[]
+  paymentStatus  String   @default("Pendente") // Pendente | Pago | Gratuito
+  presenceStatus String   @default("Pendente") // Pendente | Presente | Faltou
+  paymentProofUrl String?
+  createdAt      DateTime @default(now())
+  
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([email, eventId])
+}
+
+model Finance {
+  id          String   @id @default(cuid())
+  type        String   // Receita | Despesa
+  amount      Float
+  description String
+  notes       String?
+  receiptUrl  String?
+  createdAt   DateTime @default(now())
+  
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
