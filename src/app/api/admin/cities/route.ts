@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -13,35 +18,39 @@ export async function GET() {
   }
 
   try {
-    let whereClause: any = {};
+    let query = supabaseAdmin
+      .from('City')
+      .select(`
+        *,
+        regionalLeader:User!regionalLeaderId(name, email),
+        events:Event(count),
+        users:_UserCities(count)
+      `)
+      .order('name', { ascending: true });
 
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
       // Todos
     } else if (role === "REGIONAL_LEADER") {
-      whereClause.OR = [
-        { id: { in: userCityIds } },
-        { regionalLeaderId: session.user.id }
-      ];
+      query = query.or(`id.in.(${userCityIds.join(',')}),regionalLeaderId.eq.${session.user.id}`);
     } else {
-      whereClause.id = { in: userCityIds };
+      query = query.in('id', userCityIds);
     }
 
-    const cities = await (prisma as any).city.findMany({
-      where: whereClause,
-      include: {
-        _count: {
-          select: { events: true, users: true }
-        },
-        regionalLeader: {
-          select: { name: true, email: true }
-        }
-      },
-      orderBy: { name: "asc" }
-    });
+    const { data: cities, error } = await query;
+    if (error) throw error;
 
-    return NextResponse.json(cities);
-  } catch (error) {
-    console.error("Cities API Error:", error);
+    // Map to match Prisma's counts structure if possible, or just return as is
+    const formattedCities = (cities || []).map((c: any) => ({
+      ...c,
+      _count: {
+        events: c.events?.[0]?.count || 0,
+        users: c.users?.[0]?.count || 0
+      }
+    }));
+
+    return NextResponse.json(formattedCities);
+  } catch (error: any) {
+    console.error("Cities API Error:", error.message);
     return NextResponse.json({ error: "Erro ao buscar cidades" }, { status: 500 });
   }
 }
@@ -60,24 +69,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nome e Slug são obrigatórios" }, { status: 400 });
     }
 
-    const city = await (prisma as any).city.create({
-      data: {
+    const { data, error } = await supabaseAdmin
+      .from('City')
+      .insert({
         name,
         slug,
         regionName,
         regionalLeaderId: regionalLeaderId || null
-      }
-    });
+      })
+      .select()
+      .single();
 
-    return NextResponse.json({ city });
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: "O slug da cidade deve ser único" }, { status: 400 });
+    if (error) {
+      if (error.code === '23505') { // Postgres code for duplicate key
+        return NextResponse.json({ error: "O slug da cidade deve ser único" }, { status: 400 });
+      }
+      throw error;
     }
-    console.error("Create City API Error:", error);
+
+    return NextResponse.json({ city: data });
+  } catch (error: any) {
+    console.error("Create City API Error:", error.message);
     return NextResponse.json({ 
       error: "Erro ao criar cidade",
-      details: error instanceof Error ? error.message : String(error)
+      details: error.message
     }, { status: 500 });
   }
 }

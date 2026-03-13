@@ -6,7 +6,7 @@ const globalForPrisma = global as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const connectionString = `${process.env.DATABASE_URL}`;
+const connectionString = "postgresql://postgres.xtjpxemtsnulcrhwnmbg:CrieApp2026@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require";
 
 const pool = new Pool({ 
   connectionString,
@@ -16,10 +16,7 @@ const pool = new Pool({
 });
 const adapter = new PrismaPg(pool as any);
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+export const prisma = new PrismaClient({
     adapter,
   });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

@@ -32,6 +32,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
+        const { createClient } = require('@supabase/supabase-js');
         const fs = require('fs');
         const log = (msg: string) => {
           try {
@@ -39,26 +40,24 @@ export const authOptions: NextAuthOptions = {
           } catch (e) {}
         };
 
-        log(`Login attempt for: ${credentials?.email}`);
-        if (!credentials?.email || !credentials?.password) {
-          log('Missing email or password');
-          return null;
-        }
+        log(`SUPABASE CLIENT: Login attempt for: ${credentials?.email}`);
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const supabaseAdmin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
         try {
-          const user = await prisma.user.findFirst({
-            where: { 
-              email: {
-                equals: credentials.email.trim(),
-                mode: 'insensitive'
-              }
-            },
-            include: { cities: true }
-          });
-
-          log(`User found in DB: ${!!user}`);
-          if (!user) {
-            log(`Email not found: ${credentials.email.trim()}`);
+          // Fetch user
+          const { data: user, error: userError } = await supabaseAdmin
+            .from('User')
+            .select('id, name, email, password, role')
+            .ilike('email', credentials.email.trim())
+            .single();
+          
+          if (userError || !user) {
+            log(`User not found or error: ${userError?.message || 'Unknown'}`);
             return null;
           }
 
@@ -66,20 +65,28 @@ export const authOptions: NextAuthOptions = {
           log(`Password valid: ${isPassValid}`);
 
           if (!isPassValid) {
-            log(`Password mismatch for: ${credentials.email}`);
+            log(`Password mismatch`);
             return null;
           }
 
-          log(`Success login for: ${user.email}`);
+          // Fetch cities
+          const { data: userCities, error: cityError } = await supabaseAdmin
+            .from('_UserCities')
+            .select('B')
+            .eq('A', user.id);
+          
+          const cityIds = userCities ? userCities.map((c: any) => c.B) : [];
+          log(`User cities found: ${cityIds.join(', ')}`);
+
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
-            cityIds: user.cities.map(c => c.id)
+            cityIds
           };
         } catch (err: any) {
-          log(`AUTH ERROR: ${err.message}`);
+          log(`AUTH ERROR SUPABASE CLIENT: ${err.message}`);
           return null;
         }
       },

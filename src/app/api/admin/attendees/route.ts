@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // GET: List all attendees
 export async function GET(req: Request) {
@@ -10,9 +15,7 @@ export async function GET(req: Request) {
   const userId = session?.user?.id as string;
   const userCityIds = session?.user?.cityIds || [];
 
-  console.log("Attendees API: Session User:", JSON.stringify(session?.user));
   if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER", "APOIADOR"].includes(role)) {
-    console.log("Attendees API: Unauthorized. Role:", role);
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
@@ -21,58 +24,59 @@ export async function GET(req: Request) {
     const eventId = searchParams.get("eventId");
     const cityId = searchParams.get("cityId");
 
-    let attendeeWhere: any = {};
-    let eventWhere: any = {};
+    // 1. Fetch accessible event IDs based on role
+    let eventQuery = supabaseAdmin
+      .from('Event')
+      .select('id, title, date, cityId');
 
-    // 1. Isolação por Role
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-      // Acesso Total
+      // Full Access
     } else if (role === "REGIONAL_LEADER") {
-      // Apenas cidades lideradas regionalmente
-      const ledCities = await (prisma as any).city.findMany({
-        where: { regionalLeaderId: userId },
-        select: { id: true }
-      });
-      const ledCityIds = ledCities.map((c: any) => c.id);
-      eventWhere.cityId = { in: ledCityIds };
+      const { data: ledCities } = await supabaseAdmin
+        .from('City')
+        .select('id')
+        .eq('regionalLeaderId', userId);
+      const ledCityIds = ledCities?.map(c => c.id) || [];
+      eventQuery = eventQuery.in('cityId', ledCityIds);
     } else {
-      // LOCAL_LEADER & APOIADOR: Apenas suas cidades
-      eventWhere.cityId = { in: userCityIds };
+      eventQuery = eventQuery.in('cityId', userCityIds);
     }
 
-    // 2. Filtros ad-hoc
+    const { data: accessibleEvents, error: eventError } = await eventQuery.order('date', { ascending: false });
+    if (eventError) throw eventError;
+
+    const accessibleEventIds = accessibleEvents?.map(e => e.id) || [];
+
+    // 2. Query Attendees
+    let attendeeQuery = supabaseAdmin
+      .from('Attendee')
+      .select(`
+        *,
+        event:Event(title, cityId)
+      `)
+      .order('createdAt', { ascending: false });
+
+    // Filter by specific event if provided, otherwise filter by all accessible events
     if (eventId && eventId !== "all") {
-      attendeeWhere.eventId = eventId;
+      attendeeQuery = attendeeQuery.eq('eventId', eventId);
     } else if (cityId && cityId !== "all") {
-       eventWhere.cityId = cityId;
+      // Filter by cityId (only for events in that city)
+      const eventIdsInCity = accessibleEvents?.filter(e => e.cityId === cityId).map(e => e.id) || [];
+      attendeeQuery = attendeeQuery.in('eventId', eventIdsInCity);
+    } else {
+      // Must only show attendees for events the user can see
+      attendeeQuery = attendeeQuery.in('eventId', accessibleEventIds);
     }
 
-    // Unir filtros de evento no attendee
-    attendeeWhere.event = eventWhere;
-
-    const attendees = await (prisma as any).attendee.findMany({
-      where: attendeeWhere,
-      include: {
-        event: {
-          select: { title: true, cityId: true }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
-
-    // Fetch accessible events for filters
-    const accessibleEvents = await (prisma as any).event.findMany({
-      where: eventWhere,
-      select: { id: true, title: true, date: true, cityId: true },
-      orderBy: { date: "desc" }
-    });
+    const { data: attendees, error: attendeeError } = await attendeeQuery;
+    if (attendeeError) throw attendeeError;
 
     return NextResponse.json({
-      attendees,
+      attendees: attendees || [],
       events: accessibleEvents || []
     });
   } catch (error: any) {
-    console.error("Attendees GET API Error:", error.message, error.stack);
+    console.error("Attendees GET API Error:", error.message);
     return NextResponse.json({ error: "Erro ao buscar dados.", details: error.message }, { status: 500 });
   }
 }
@@ -93,17 +97,22 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
     }
 
-    const updated = await (prisma as any).attendee.update({
-      where: { id },
-      data: {
-        ...(paymentStatus && { paymentStatus }),
-        ...(presenceStatus && { presenceStatus }),
-      }
-    });
+    const updateData: any = {};
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (presenceStatus) updateData.presenceStatus = presenceStatus;
 
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("Dashboard Patch Error:", error);
-    return NextResponse.json({ error: "Erro ao atualizar dados." }, { status: 500 });
+    const { data, error } = await supabaseAdmin
+      .from('Attendee')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("Dashboard Patch Error:", error.message);
+    return NextResponse.json({ error: "Erro ao atualizar dados.", details: error.message }, { status: 500 });
   }
 }
