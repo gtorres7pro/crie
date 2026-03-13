@@ -38,7 +38,7 @@ export async function GET(req: Request) {
         .from('City')
         .select('id')
         .eq('regionalLeaderId', userId);
-      const ledCityIds = ledCities?.map(c => c.id) || [];
+      const ledCityIds = ledCities?.map((c: any) => c.id) || [];
       eventQuery = eventQuery.in('cityId', ledCityIds);
     } else {
       eventQuery = eventQuery.in('cityId', userCityIds);
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     const { data: accessibleEvents, error: eventError } = await eventQuery.order('date', { ascending: false });
     if (eventError) throw eventError;
 
-    const accessibleEventIds = accessibleEvents?.map(e => e.id) || [];
+    const accessibleEventIds = accessibleEvents?.map((e: any) => e.id) || [];
 
     // 2. Query Attendees
     let attendeeQuery = supabaseAdmin
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
       attendeeQuery = attendeeQuery.eq('eventId', eventId);
     } else if (cityId && cityId !== "all") {
       // Filter by cityId (only for events in that city)
-      const eventIdsInCity = accessibleEvents?.filter(e => e.cityId === cityId).map(e => e.id) || [];
+      const eventIdsInCity = accessibleEvents?.filter((e: any) => e.cityId === cityId).map((e: any) => e.id) || [];
       attendeeQuery = attendeeQuery.in('eventId', eventIdsInCity);
     } else {
       // Must only show attendees for events the user can see

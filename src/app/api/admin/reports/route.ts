@@ -85,7 +85,7 @@ export async function GET(req: Request) {
       const revenue = paid * event.price;
 
       // Only add to global stats if in filtered range
-      const isInRange = filteredEvents.some(fe => fe.id === event.id);
+      const isInRange = filteredEvents.some((fe: any) => fe.id === event.id);
       if (isInRange) {
         totalRevenue += revenue;
         totalPresentCount += present;
@@ -115,10 +115,10 @@ export async function GET(req: Request) {
     });
 
     // Global Stats based on filtered range
-    const rangeAttendees = filteredEvents.reduce((acc, e) => acc + (e.attendees?.length || 0), 0);
+    const rangeAttendees = filteredEvents.reduce((acc: number, e: any) => acc + (e.attendees?.length || 0), 0);
     const rangeReturning = eventPerformance
-      .filter(p => p.isInRange)
-      .reduce((acc, p) => acc + p.stats.returning, 0);
+      .filter((p: any) => p.isInRange)
+      .reduce((acc: number, p: any) => acc + p.stats.returning, 0);
 
     // Top Industries (sorted)
     const sortedIndustries = Object.entries(industries)
@@ -136,7 +136,7 @@ export async function GET(req: Request) {
         totalEvents: filteredEvents.length
       },
       topIndustries: sortedIndustries,
-      eventPerformance: eventPerformance.filter(p => p.isInRange).reverse() // Latest first for chart
+      eventPerformance: eventPerformance.filter((p: any) => p.isInRange).reverse() // Latest first for chart
     });
 
   } catch (error) {

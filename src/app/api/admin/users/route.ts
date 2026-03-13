@@ -34,11 +34,11 @@ export async function GET() {
         .from('_UserCities')
         .select('B')
         .eq('A', session.user.id);
-      const cityIds = userCities?.map(c => c.B) || [];
+      const cityIds = userCities?.map((c: any) => c.B) || [];
       // Note: This filtering logic might need to be refined for nested many-to-many
       // for now, we'll fetch then filter locally for simplicity if the RPC/nested filter is complex
       const { data: allUsers } = await query;
-      const filtered = allUsers?.filter(u => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
+      const filtered = allUsers?.filter((u: any) => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
       return NextResponse.json({ users: filtered });
     }
     else if (role === "REGIONAL_LEADER") {
@@ -46,9 +46,9 @@ export async function GET() {
          .from('City')
          .select('id')
          .eq('regionalLeaderId', session.user.id);
-       const cityIds = ledCities?.map(c => c.id) || [];
+       const cityIds = ledCities?.map((c: any) => c.id) || [];
        const { data: allUsers } = await query;
-       const filtered = allUsers?.filter(u => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
+       const filtered = allUsers?.filter((u: any) => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
        return NextResponse.json({ users: filtered });
     }
 
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
          return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
        }
        const { data: ledCities } = await supabaseAdmin.from('City').select('id').eq('regionalLeaderId', currentUserId);
-       const ledCityIds = ledCities?.map(c => c.id) || [];
+       const ledCityIds = ledCities?.map((c: any) => c.id) || [];
        if (cityIds?.some((id: string) => !ledCityIds.includes(id))) {
          return NextResponse.json({ error: "Cidade não liderada por você" }, { status: 403 });
        }

@@ -44,7 +44,7 @@ export async function GET(req: Request) {
         .select('id')
         .eq('regionalLeaderId', session.user.id);
       
-      const ledCityIds = ledCities?.map(c => c.id) || [];
+      const ledCityIds = ledCities?.map((c: any) => c.id) || [];
       query = query.in('cityId', ledCityIds);
     } else {
       // LOCAL_LEADER & APOIADOR: Apenas suas cidades
