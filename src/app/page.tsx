@@ -244,7 +244,7 @@ export default function RegistrationPage() {
           <div className="space-y-6">
             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500">Convidados Especiais</h3>
             <div className="flex flex-wrap gap-3">
-              {["Manoal Alvino", "Bernard Alves", "Gabriel Torres"].map((name) => (
+              {["Manoel Alvino", "Bernard Alves", "Gabriel Torres", "Kamilla Torres", "Fernanda Wanessa"].map((name) => (
                 <div key={name} className="px-6 py-4 rounded-3xl bg-zinc-900/50 border border-zinc-800/80 text-sm font-bold hover:border-amber-400/30 transition-all hover:scale-105 cursor-default">
                   {name}
                 </div>
