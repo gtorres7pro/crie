@@ -4,10 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null as any;
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Enviar convites (Simulado em lote para evitar timeout, em produção seria ideal um queue)
-    const results = await Promise.all(collaborators.map(async (c) => {
+    const results = await Promise.all(collaborators.map(async (c: any) => {
       return sendEmail({
         to: c.email,
         subject: `Convite Especial: ${nextEvent.title} - CRIE Braga`,
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
       });
     }));
 
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r: any) => r.success).length;
 
     return NextResponse.json({ 
       success: true, 
