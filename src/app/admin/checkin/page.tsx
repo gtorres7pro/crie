@@ -79,13 +79,103 @@ export default function CheckinPanel() {
       a.name?.toLowerCase().includes(search.toLowerCase()) || 
       a.email?.toLowerCase().includes(search.toLowerCase())
     )
-    .sort((a, b) => {
-      // Presente vai para o fundo
-      if (a.presenceStatus === "Presente" && b.presenceStatus !== "Presente") return 1;
-      if (a.presenceStatus !== "Presente" && b.presenceStatus === "Presente") return -1;
-      // Depois ordena por nome
-      return a.name.localeCompare(b.name);
-    });
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const pendingAttendees = filteredAttendees.filter(a => a.presenceStatus !== "Presente");
+  const presentAttendees = filteredAttendees.filter(a => a.presenceStatus === "Presente");
+
+  const renderAttendeeCard = (attendee: Attendee) => (
+    <motion.div
+      layout
+      key={attendee.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className={cn(
+        "bg-[#0f0f0f] border rounded-[32px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-8 transition-all relative overflow-hidden",
+        attendee.presenceStatus === "Presente" ? "border-zinc-800/30 opacity-60 grayscale-[0.5]" : "border-zinc-800 hover:border-amber-400/30 shadow-xl"
+      )}
+    >
+      {/* Status Indicator */}
+      <div className={cn(
+        "absolute top-0 left-0 bottom-0 w-1",
+        attendee.presenceStatus === "Presente" ? "bg-zinc-800" : "bg-gradient-to-b from-amber-400 to-amber-600"
+      )} />
+
+      <div className="flex-1 w-full flex items-center gap-6">
+        <div className={cn(
+          "w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border transition-all",
+          attendee.presenceStatus === "Presente" ? "bg-zinc-900 border-zinc-800 text-zinc-600" : "bg-amber-400/10 border-amber-400/20 text-amber-400 shadow-lg shadow-amber-400/5"
+        )}>
+          {attendee.presenceStatus === "Presente" ? <CheckCircle2 className="w-8 h-8" /> : <Users className="w-8 h-8" />}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-black uppercase tracking-tight truncate">{attendee.name}</h3>
+            {attendee.paymentProofUrl && (
+              <a 
+                href={attendee.paymentProofUrl} 
+                target="_blank" 
+                className="p-1.5 bg-amber-400/10 text-amber-400 rounded-lg border border-amber-400/20 hover:bg-amber-400/20"
+                title="Ver Recibo"
+              >
+                <FileText className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-4 mt-1 text-zinc-500 font-bold text-[10px] tracking-widest uppercase">
+            <span>{attendee.industry}</span>
+            <span className="w-1 h-1 bg-zinc-800 rounded-full" />
+            <span>{attendee.email}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls Area */}
+      <div className="flex flex-wrap items-center justify-end gap-4 w-full md:w-auto">
+        
+        {/* Payment Status Dropdown / Cycle */}
+        <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800">
+          {(["Pendente", "Pago", "Gratuito"] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => handleUpdate(attendee.id, { paymentStatus: status })}
+              className={cn(
+                "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                attendee.paymentStatus === status 
+                  ? status === "Pago" ? "bg-green-500/10 text-green-500 border border-green-500/20" :
+                    status === "Gratuito" ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" :
+                    "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  : "text-zinc-600 hover:text-zinc-400"
+              )}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+
+        {/* Check-in Button */}
+        <button
+          disabled={updatingId === attendee.id}
+          onClick={() => handleUpdate(attendee.id, { presenceStatus: attendee.presenceStatus === "Presente" ? "Pendente" : "Presente" })}
+          className={cn(
+            "group px-8 py-3.5 rounded-[20px] font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center justify-center gap-3 min-w-[160px]",
+            attendee.presenceStatus === "Presente"
+              ? "bg-zinc-900 text-green-500 border border-zinc-800 hover:border-red-500/30 hover:text-red-500"
+              : "bg-gradient-to-r from-amber-400 to-amber-600 text-black shadow-xl shadow-amber-500/20 hover:scale-[1.05] active:scale-[0.95]"
+          )}
+        >
+          {updatingId === attendee.id ? (
+            <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          ) : attendee.presenceStatus === "Presente" ? (
+            <><CheckCircle2 className="w-4 h-4 group-hover:hidden" /><span className="group-hover:hidden">PRESENTE</span><span className="hidden group-hover:block">DESFAZER</span></>
+          ) : (
+            <>CONFIRMAR <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>
+          )}
+        </button>
+      </div>
+    </motion.div>
+  );
 
   if (loading) {
     return (
@@ -140,98 +230,24 @@ export default function CheckinPanel() {
         {/* List */}
         <div className="space-y-4">
           <AnimatePresence mode="popLayout">
-            {filteredAttendees.map((attendee) => (
-              <motion.div
-                layout
-                key={attendee.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className={cn(
-                  "bg-[#0f0f0f] border rounded-[32px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-8 transition-all relative overflow-hidden",
-                  attendee.presenceStatus === "Presente" ? "border-zinc-800/30 opacity-60 grayscale-[0.5]" : "border-zinc-800 hover:border-amber-400/30 shadow-xl"
-                )}
-              >
-                {/* Status Indicator */}
-                <div className={cn(
-                  "absolute top-0 left-0 bottom-0 w-1",
-                  attendee.presenceStatus === "Presente" ? "bg-zinc-800" : "bg-gradient-to-b from-amber-400 to-amber-600"
-                )} />
+            {pendingAttendees.map(renderAttendeeCard)}
+          </AnimatePresence>
 
-                <div className="flex-1 w-full flex items-center gap-6">
-                  <div className={cn(
-                    "w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border transition-all",
-                    attendee.presenceStatus === "Presente" ? "bg-zinc-900 border-zinc-800 text-zinc-600" : "bg-amber-400/10 border-amber-400/20 text-amber-400 shadow-lg shadow-amber-400/5"
-                  )}>
-                    {attendee.presenceStatus === "Presente" ? <CheckCircle2 className="w-8 h-8" /> : <Users className="w-8 h-8" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-xl font-black uppercase tracking-tight truncate">{attendee.name}</h3>
-                      {attendee.paymentProofUrl && (
-                        <a 
-                          href={attendee.paymentProofUrl} 
-                          target="_blank" 
-                          className="p-1.5 bg-amber-400/10 text-amber-400 rounded-lg border border-amber-400/20 hover:bg-amber-400/20"
-                          title="Ver Recibo"
-                        >
-                          <FileText className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4 mt-1 text-zinc-500 font-bold text-[10px] tracking-widest uppercase">
-                      <span>{attendee.industry}</span>
-                      <span className="w-1 h-1 bg-zinc-800 rounded-full" />
-                      <span>{attendee.email}</span>
-                    </div>
-                  </div>
-                </div>
+          {presentAttendees.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="pt-12 pb-4 border-b border-zinc-900 mb-4"
+            >
+              <h2 className="text-xl font-black uppercase tracking-widest text-zinc-500 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-500" /> 
+                Participantes Presentes ({presentAttendees.length})
+              </h2>
+            </motion.div>
+          )}
 
-                {/* Controls Area */}
-                <div className="flex flex-wrap items-center justify-end gap-4 w-full md:w-auto">
-                  
-                  {/* Payment Status Dropdown / Cycle */}
-                  <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800">
-                    {(["Pendente", "Pago", "Gratuito"] as const).map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => handleUpdate(attendee.id, { paymentStatus: status })}
-                        className={cn(
-                          "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                          attendee.paymentStatus === status 
-                            ? status === "Pago" ? "bg-green-500/10 text-green-500 border border-green-500/20" :
-                              status === "Gratuito" ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" :
-                              "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                            : "text-zinc-600 hover:text-zinc-400"
-                        )}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Check-in Button */}
-                  <button
-                    disabled={updatingId === attendee.id}
-                    onClick={() => handleUpdate(attendee.id, { presenceStatus: attendee.presenceStatus === "Presente" ? "Pendente" : "Presente" })}
-                    className={cn(
-                      "group px-8 py-3.5 rounded-[20px] font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center gap-3",
-                      attendee.presenceStatus === "Presente"
-                        ? "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:bg-zinc-800"
-                        : "bg-gradient-to-r from-amber-400 to-amber-600 text-black shadow-xl shadow-amber-500/20 hover:scale-[1.05] active:scale-[0.95]"
-                    )}
-                  >
-                    {updatingId === attendee.id ? (
-                      <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : attendee.presenceStatus === "Presente" ? (
-                      <>CANCELADO</>
-                    ) : (
-                      <>CONFIRMAR <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+          <AnimatePresence mode="popLayout">
+            {presentAttendees.map(renderAttendeeCard)}
           </AnimatePresence>
 
           {filteredAttendees.length === 0 && (
