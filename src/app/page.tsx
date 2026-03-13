@@ -33,6 +33,7 @@ interface ActiveEvent {
   price: number;
   occupancy: number;
   isFull: boolean;
+  bannerUrl?: string;
 }
 
 export default function RegistrationPage() {
@@ -181,13 +182,40 @@ export default function RegistrationPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-amber-400/30">
+      {/* Mobile Sticky Capacity Flag */}
+      {flag && (
+        <div className={cn(
+          "lg:hidden sticky top-0 z-[100] w-full py-3 px-6 text-center text-[10px] font-black tracking-[0.3em] uppercase flex items-center justify-center gap-2 shadow-xl",
+          flag.color,
+          "text-white"
+        )}>
+          <flag.icon className="w-3 h-3" />
+          {flag.text}
+        </div>
+      )}
+
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-amber-400/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-amber-400/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 lg:py-24 grid lg:grid-cols-2 gap-16 items-start">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+        
+        {/* Banner Section (New) */}
+        {event.bannerUrl && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="lg:col-span-2 mb-8 lg:mb-12 overflow-hidden rounded-[40px] border border-zinc-800 shadow-2xl"
+          >
+            <img 
+              src={event.bannerUrl} 
+              alt={event.title} 
+              className="w-full h-auto object-cover max-h-[600px]"
+            />
+          </motion.div>
+        )}
         
         {/* Left Side: Info */}
         <motion.div 
@@ -269,10 +297,10 @@ export default function RegistrationPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-[#0f0f0f] border border-zinc-800/80 rounded-[48px] p-8 lg:p-14 shadow-2xl relative overflow-hidden"
         >
-          {/* Flag (Capacity Badge) */}
+          {/* Desktop Flag (Capacity Badge) */}
           {flag && (
             <div className={cn(
-              "absolute top-0 left-0 right-0 py-3 text-center text-[10px] font-black tracking-[0.3em] uppercase flex items-center justify-center gap-2",
+              "hidden lg:flex absolute top-0 left-0 right-0 py-3 text-center text-[10px] font-black tracking-[0.3em] uppercase items-center justify-center gap-2",
               flag.color,
               "text-white"
             )}>

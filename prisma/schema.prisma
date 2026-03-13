@@ -49,7 +49,7 @@ model Event {
   location    String
   capacity    Int      @default(0)
   price       Float    @default(0)
-  status      String   @default("LIVE") // LIVE | ARCHIVED
+  bannerUrl   String?
   createdAt   DateTime @default(now())
   
   // Multi-city relation

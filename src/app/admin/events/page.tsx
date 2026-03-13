@@ -20,7 +20,8 @@ import {
   FileText,
   Link,
   FileDown,
-  RefreshCcw
+  RefreshCcw,
+  Image as ImageIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ interface Event {
     expenses: number;
     balance: number;
   };
+  bannerUrl?: string;
   finances: any[];
 }
 
@@ -72,6 +74,8 @@ export default function AdminEventsPage() {
   const [selectedCityId, setSelectedCityId] = useState<string>("all");
   const [accessibleCities, setAccessibleCities] = useState<any[]>([]);
   const [expenseInput, setExpenseInput] = useState({ description: "", amount: "" });
+  const [selectedBanner, setSelectedBanner] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
 
   async function fetchEvents() {
@@ -128,11 +132,29 @@ export default function AdminEventsPage() {
     const data = Object.fromEntries(formData.entries());
 
     // Basic frontend cleaning
-    const payload = {
+    const payload: any = {
       ...data,
       capacity: Number(data.capacity),
       price: Number(data.price),
     };
+
+    // Upload banner if selected
+    if (selectedBanner) {
+      const bannerFormData = new FormData();
+      bannerFormData.append("file", selectedBanner);
+      try {
+        const uploadRes = await fetch("/api/admin/events/upload", {
+          method: "POST",
+          body: bannerFormData
+        });
+        if (uploadRes.ok) {
+          const { url } = await uploadRes.json();
+          payload.bannerUrl = url;
+        }
+      } catch (err) {
+        console.error("Banner upload failed:", err);
+      }
+    }
 
     const method = editingEvent?.id ? "PATCH" : "POST";
     const url = editingEvent?.id ? `/api/admin/events/${editingEvent.id}` : "/api/admin/events";
@@ -355,6 +377,15 @@ export default function AdminEventsPage() {
                 )}
               </div>
 
+              {editingEvent && editingEvent.bannerUrl && (
+                <div className="mb-8 w-full h-40 rounded-3xl overflow-hidden border border-zinc-800 relative group">
+                   <img src={editingEvent.bannerUrl} alt="Banner" className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <p className="text-[10px] font-black text-white uppercase tracking-widest">Banner Atual</p>
+                   </div>
+                </div>
+              )}
+
               {error && (
                 <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-2xl text-red-500 text-sm font-bold flex items-center gap-3">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -414,6 +445,31 @@ export default function AdminEventsPage() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-zinc-500 uppercase">Descrição</label>
                     <textarea name="description" defaultValue={editingEvent?.description} rows={3} className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase">Banner do Evento (Opcional)</label>
+                    <label className="flex items-center gap-4 p-5 bg-black/40 border-2 border-dashed border-zinc-800 rounded-3xl cursor-pointer hover:border-amber-500/50 transition-all group">
+                       <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center group-hover:bg-amber-500 transition-colors">
+                          <ImageIcon className="w-6 h-6 text-zinc-600 group-hover:text-black" />
+                       </div>
+                       <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-zinc-300">
+                             {selectedBanner ? selectedBanner.name : "Clique para carregar o banner"}
+                          </p>
+                          <p className="text-[10px] text-zinc-600 uppercase font-black">Recomendado: 1200x630px</p>
+                       </div>
+                       <input 
+                         type="file" 
+                         className="hidden" 
+                         accept="image/*"
+                         onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setSelectedBanner(file);
+                            if (file) setBannerPreview(URL.createObjectURL(file));
+                         }}
+                       />
+                    </label>
                   </div>
 
                   <div className="flex gap-4 pt-4">
