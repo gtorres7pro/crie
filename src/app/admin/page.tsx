@@ -199,7 +199,7 @@ export default function AdminPage() {
           <h1 className="text-4xl font-black tracking-tight mb-2 uppercase">Base de Dados</h1>
           <p className="text-zinc-500 font-medium">Gestão global de membros e presenças por evento.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button 
            onClick={fetchAttendees}
            className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-800 transition-colors text-zinc-400"
@@ -247,8 +247,8 @@ export default function AdminPage() {
 
       {/* Main Table Area */}
       <div className="bg-[#0f0f0f] border border-zinc-800/80 rounded-[32px] overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4 bg-zinc-900/20">
-          <div className="relative w-full sm:max-w-md">
+        <div className="p-4 sm:p-6 border-b border-zinc-900 flex flex-col lg:flex-row justify-between gap-4 bg-zinc-900/20">
+          <div className="relative w-full lg:max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <input 
               type="text"
@@ -258,9 +258,9 @@ export default function AdminPage() {
               className="w-full bg-black/40 border border-zinc-800 rounded-2xl pl-12 pr-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500/30 transition-all text-sm"
             />
           </div>
-          <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
             {accessibleCities.length > 1 && (
-              <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 min-w-[150px]">
+              <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 w-full sm:min-w-[150px]">
                 <MapPin className="w-3 h-3 text-zinc-600" />
                 <select 
                   value={selectedCityId}
@@ -277,7 +277,7 @@ export default function AdminPage() {
                 </select>
               </div>
             )}
-            <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 min-w-[200px]">
+            <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 w-full sm:min-w-[200px]">
               <Filter className="w-3 h-3 text-zinc-600" />
               <select 
                 value={selectedEventId}
