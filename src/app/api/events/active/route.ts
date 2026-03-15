@@ -10,10 +10,11 @@ const supabase = (supabaseUrl && supabaseServiceKey)
 
 export async function GET() {
   try {
-    const now = new Date();
-    // Start of today in ISO
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-
+    // Start of today minus 6 hours to keep today's event active during the event time
+    const today = new Date();
+    today.setHours(today.getHours() - 6);
+    const todayISO = today.toISOString();
+引导
     // Find the nearest LIVE event that is today or in the future
     const { data: event, error } = await supabase
       .from("Event")
@@ -23,7 +24,7 @@ export async function GET() {
         attendees:Attendee(id)
       `)
       .eq("status", "LIVE")
-      .gte("date", today)
+      .gte("date", todayISO)
       .order("date", { ascending: true })
       .limit(1)
       .single();
