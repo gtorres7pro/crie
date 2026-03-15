@@ -24,7 +24,7 @@ export async function GET() {
       .from('User')
       .select(`
         id, name, email, phone, role,
-        cities:City!_UserCities(id, name)
+        cities:City(id, name)
       `)
       .order('name', { ascending: true });
 

@@ -16,7 +16,7 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(session.user.role)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 

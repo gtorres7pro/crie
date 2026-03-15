@@ -378,14 +378,34 @@ export default function CheckinPanel() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 ml-4">Área/Indústria</label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={addForm.industry}
                       onChange={e => setAddForm({ ...addForm, industry: e.target.value })}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 text-white placeholder:text-zinc-700 transition-all"
-                      placeholder="Tecnologia..."
-                    />
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 text-white transition-all appearance-none"
+                    >
+                      <option value="" disabled>Selecione uma área</option>
+                      <option value="Tecnologia / TI">Tecnologia / TI</option>
+                      <option value="Imobiliário">Imobiliário</option>
+                      <option value="Vendas / Comercial">Vendas / Comercial</option>
+                      <option value="Marketing / Design">Marketing / Design</option>
+                      <option value="Saúde / Bem-estar">Saúde / Bem-estar</option>
+                      <option value="Educação / Humanas">Educação / Humanas</option>
+                      <option value="Gastronomia / Alimentação">Gastronomia / Alimentação</option>
+                      <option value="Comércio / Varejo">Comércio / Varejo</option>
+                      <option value="Construção / Imobiliário">Construção / Imobiliário</option>
+                      <option value="Finanças / Consultoria">Finanças / Consultoria</option>
+                      <option value="Turismo / Viagens">Turismo / Viagens</option>
+                      <option value="Agropecuária">Agropecuária</option>
+                      <option value="Serviços Gerais">Serviços Gerais</option>
+                      <option value="Religião / Terceiro Setor">Religião / Terceiro Setor</option>
+                      <option value="Jurídica / Advocacia">Jurídica / Advocacia</option>
+                      <option value="Transporte / Logística">Transporte / Logística</option>
+                      <option value="Estética / Beleza">Estética / Beleza</option>
+                      <option value="Gestão / Consultoria">Gestão / Consultoria</option>
+                      <option value="Eventos / Entretenimento">Eventos / Entretenimento</option>
+                      <option value="Outros">Outros</option>
+                    </select>
                   </div>
                 </div>
 

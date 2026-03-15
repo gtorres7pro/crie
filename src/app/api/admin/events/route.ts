@@ -107,7 +107,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, description, date, location, capacity, price, status, cityId } = body;
+    const { title, description, date, location, capacity, price, status, bannerUrl, cityId } = body;
 
     if (!title || !date || !location || !cityId) {
       return NextResponse.json({ error: "Título, data, local e cidade são obrigatórios" }, { status: 400 });
@@ -137,6 +137,7 @@ export async function POST(req: Request) {
         capacity: Number(capacity),
         price: Number(price),
         status: status || "DRAFT",
+        bannerUrl,
         cityId
       })
       .select()
