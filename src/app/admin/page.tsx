@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [accessibleCities, setAccessibleCities] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -147,14 +148,22 @@ export default function AdminPage() {
 
   async function fetchAttendees() {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/admin/attendees?eventId=${selectedEventId}&cityId=${selectedCityId}`);
-      if (!res.ok) throw new Error("Falha ao buscar inscritos");
       const data = await res.json();
+      
+      if (!res.ok) {
+        setError(data.error || "Falha ao buscar inscritos");
+        setAttendees([]);
+        return;
+      }
+      
       setAttendees(data.attendees || []);
       setEvents(data.events || []);
     } catch (err) {
       console.error("Fetch error:", err);
+      setError("Erro de rede ao buscar inscritos.");
       setAttendees([]);
     } finally {
       setLoading(false);
@@ -254,6 +263,13 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-500 font-bold text-sm flex items-center justify-between">
+          <p>{error}</p>
+          <button onClick={fetchAttendees} className="underline text-xs">Tentar novamente</button>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">

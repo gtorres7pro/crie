@@ -83,9 +83,16 @@ export default function AdminEventsPage() {
     try {
       const res = await fetch(`/api/admin/events?cityId=${selectedCityId}`);
       const data = await res.json();
-      setEvents(data);
+      if (Array.isArray(data)) {
+        setEvents(data);
+      } else {
+        console.error("Data is not an array:", data);
+        setError(data.error || "Erro inesperado ao carregar eventos.");
+        setEvents([]);
+      }
     } catch (err) {
       console.error(err);
+      setError("Erro de rede ao buscar eventos.");
     } finally {
       setLoading(false);
     }
@@ -199,9 +206,10 @@ export default function AdminEventsPage() {
     }
   }
 
-  const liveEvents = events.filter(e => e.status === "LIVE" && new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)));
-  const drafts = events.filter(e => e.status === "DRAFT");
-  const pastEvents = events
+  const safeEvents = Array.isArray(events) ? events : [];
+  const liveEvents = safeEvents.filter(e => e.status === "LIVE" && new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)));
+  const drafts = safeEvents.filter(e => e.status === "DRAFT");
+  const pastEvents = safeEvents
     .filter(e => new Date(e.date) < new Date(new Date().setHours(0,0,0,0)) || e.status === "ARCHIVED")
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
