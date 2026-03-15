@@ -19,6 +19,7 @@ export async function GET() {
       .from("Event")
       .select(`
         *,
+        bannerUrl,
         attendees:Attendee(id)
       `)
       .eq("status", "LIVE")
