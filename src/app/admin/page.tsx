@@ -155,12 +155,23 @@ export default function AdminPage() {
       
       if (!res.ok) {
         setError(data.error || "Falha ao buscar inscritos");
+        if (data.details) {
+          setError(prev => prev + ": " + data.details);
+        }
         setAttendees([]);
         return;
       }
       
       setAttendees(data.attendees || []);
-      setEvents(data.events || []);
+      if (Array.isArray(data.events)) {
+        setEvents(data.events);
+      } else {
+        console.error("Data.events is not an array:", data.events);
+        let msg = data.error || "Erro inesperado ao carregar eventos.";
+        if (data.details) msg += ": " + data.details;
+        setError(msg);
+        setEvents([]);
+      }
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Erro de rede ao buscar inscritos.");

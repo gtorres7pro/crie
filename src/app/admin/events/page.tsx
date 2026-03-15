@@ -87,7 +87,9 @@ export default function AdminEventsPage() {
         setEvents(data);
       } else {
         console.error("Data is not an array:", data);
-        setError(data.error || "Erro inesperado ao carregar eventos.");
+        let msg = data.error || "Erro inesperado ao carregar eventos.";
+        if (data.details) msg += ": " + data.details;
+        setError(msg);
         setEvents([]);
       }
     } catch (err) {
