@@ -200,114 +200,112 @@ export default function RegistrationPage() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-amber-400/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 lg:py-24">
         
-        {/* Banner Section (New) */}
+        {/* Flyer Banner - Now full width at the very top */}
         {event.bannerUrl && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="lg:col-span-2 mb-8 lg:mb-12 overflow-hidden rounded-[40px] border border-zinc-800 shadow-2xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12 lg:mb-20 overflow-hidden rounded-[40px] border border-zinc-800 shadow-2xl"
           >
             <img 
               src={event.bannerUrl} 
               alt={event.title} 
-              className="w-full h-auto object-cover max-h-[600px]"
+              className="w-full h-auto object-cover max-h-[700px]"
             />
           </motion.div>
         )}
-        
-        {/* Left Side: Info */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="space-y-12"
-        >
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-               <div className="relative w-16 h-16 bg-gradient-to-tr from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <span className="text-black font-black text-3xl">C*</span>
-               </div>
-               <div>
-                 <h2 className="text-zinc-400 font-medium tracking-[0.2em] uppercase text-xs">Lagoinha Global</h2>
-                 <h1 className="text-2xl font-black tracking-tight uppercase">CRIE BRAGA</h1>
-               </div>
-            </div>
-            
-            <h2 className="text-5xl lg:text-7xl font-black leading-none tracking-tighter uppercase">
-              Celebrar e avançar nos <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200">negócios.</span>
-            </h2>
-            
-            <p className="text-xl text-zinc-400 max-w-lg leading-relaxed font-medium">
-              {event.description || "Um encontro para empresários que buscam crescimento e networking cristão."}
-            </p>
-          </div>
 
-          <div className="grid sm:grid-cols-2 gap-8 bg-zinc-900/40 p-10 rounded-[40px] border border-zinc-800/50 backdrop-blur-sm shadow-xl">
-            <div className="flex gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-700/50">
-                <Calendar className="w-7 h-7 text-amber-400" />
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          {/* Left Side: Info */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-12"
+          >
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                 <div className="relative w-16 h-16 bg-gradient-to-tr from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <span className="text-black font-black text-3xl">C*</span>
+                 </div>
+                 <div>
+                   <h2 className="text-zinc-400 font-medium tracking-[0.2em] uppercase text-xs">Lagoinha Braga</h2>
+                   <h1 className="text-2xl font-black tracking-tight uppercase">CRIE BRAGA</h1>
+                 </div>
               </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Data & Hora</p>
-                <p className="text-zinc-100 font-bold text-lg leading-tight">
-                  {new Date(event.date).toLocaleDateString()}
-                  <br/>
-                  <span className="text-sm font-medium text-zinc-400">às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}h</span>
-                </p>
-              </div>
+              
+              <h2 className="text-5xl lg:text-7xl font-black leading-none tracking-tighter uppercase">
+                {event.title.includes(" ") ? (
+                  <>
+                    {event.title.split(" ").slice(0, -1).join(" ")} <br/> 
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200">
+                      {event.title.split(" ").slice(-1)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200">{event.title}</span>
+                )}
+              </h2>
+              
+              <p className="text-xl text-zinc-400 max-w-lg leading-relaxed font-medium">
+                {event.description || "Um encontro para empresários que buscam crescimento e networking cristão."}
+              </p>
             </div>
-            <div className="flex gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-700/50">
-                <MapPin className="w-7 h-7 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Localização</p>
-                <p className="text-zinc-100 font-bold text-lg leading-tight">{event.location}</p>
-                <p className="text-zinc-500 text-xs mt-1 font-medium">Nogueira - Braga</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500">Convidados Especiais</h3>
-            <div className="flex flex-wrap gap-3">
-              {["Manoel Alvino", "Bernard Alves", "Gabriel Torres", "Kamilla Torres", "Fernanda Wanessa"].map((name) => (
-                <div key={name} className="px-6 py-4 rounded-3xl bg-zinc-900/50 border border-zinc-800/80 text-sm font-bold hover:border-amber-400/30 transition-all hover:scale-105 cursor-default">
-                  {name}
+            <div className="grid sm:grid-cols-2 gap-8 bg-zinc-900/40 p-10 rounded-[40px] border border-zinc-800/50 backdrop-blur-sm shadow-xl">
+              <div className="flex gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-700/50">
+                  <Calendar className="w-7 h-7 text-amber-400" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Data & Hora</p>
+                  <p className="text-zinc-100 font-bold text-lg leading-tight">
+                    {new Date(event.date).toLocaleDateString()}
+                    <br/>
+                    <span className="text-sm font-medium text-zinc-400">às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}h</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-700/50">
+                  <MapPin className="w-7 h-7 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Localização</p>
+                  <p className="text-zinc-100 font-bold text-lg leading-tight">{event.location}</p>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="p-10 rounded-[40px] bg-amber-400/[0.02] border border-amber-400/10 space-y-4">
-             <div className="flex items-center gap-3">
-               <Info className="w-5 h-5 text-amber-400" />
-               <h3 className="font-black text-xl text-amber-200 uppercase tracking-tight">O que é o CRIE?</h3>
-             </div>
-             <p className="text-zinc-400 leading-relaxed font-medium">
-               O CRIE é um ministério da Igreja Lagoinha, dedicado a empresários que buscam relacionamento e crescimento pessoal, profissional e espiritual entre outros empresários.
-             </p>
-          </div>
-        </motion.div>
-
-        {/* Right Side: Form */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0f0f0f] border border-zinc-800/80 rounded-[48px] p-8 lg:p-14 shadow-2xl relative overflow-hidden"
-        >
-          {/* Desktop Flag (Capacity Badge) */}
-          {flag && (
-            <div className={cn(
-              "hidden lg:flex absolute top-0 left-0 right-0 py-3 text-center text-[10px] font-black tracking-[0.3em] uppercase items-center justify-center gap-2",
-              flag.color,
-              "text-white"
-            )}>
-              <flag.icon className="w-3 h-3" />
-              {flag.text}
+            <div className="p-10 rounded-[40px] bg-amber-400/[0.02] border border-amber-400/10 space-y-4">
+               <div className="flex items-center gap-3">
+                 <Info className="w-5 h-5 text-amber-400" />
+                 <h3 className="font-black text-xl text-amber-200 uppercase tracking-tight">O que é o CRIE?</h3>
+               </div>
+               <p className="text-zinc-400 leading-relaxed font-medium">
+                 O CRIE é um ministério da Igreja Lagoinha, dedicado a empresários que buscam relacionamento e crescimento pessoal, profissional e espiritual entre outros empresários.
+               </p>
             </div>
-          )}
+          </motion.div>
+
+          {/* Right Side: Form */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-[#0f0f0f] border border-zinc-800/80 rounded-[48px] p-8 lg:p-14 shadow-2xl relative overflow-hidden"
+          >
+            {/* Desktop Flag (Capacity Badge) */}
+            {flag && (
+              <div className={cn(
+                "hidden lg:flex absolute top-0 left-0 right-0 py-3 text-center text-[10px] font-black tracking-[0.3em] uppercase items-center justify-center gap-2",
+                flag.color,
+                "text-white"
+              )}>
+                <flag.icon className="w-3 h-3" />
+                {flag.text}
+              </div>
+            )}
 
           <div className="absolute top-12 right-14 text-right">
             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Investimento</p>
@@ -458,5 +456,6 @@ export default function RegistrationPage() {
 
       </div>
     </div>
-  );
+  </div>
+);
 }

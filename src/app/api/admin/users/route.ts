@@ -101,6 +101,7 @@ export async function POST(req: Request) {
     const { data: user, error: userError } = await supabaseAdmin
       .from('User')
       .insert({
+        id: crypto.randomUUID(),
         name,
         email: email.toLowerCase(),
         phone,

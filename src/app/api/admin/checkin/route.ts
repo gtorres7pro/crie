@@ -95,3 +95,58 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
+
+// POST: Add attendee manually (bypasses capacity)
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role;
+    if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER", "APOIADOR"].includes(role as string)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const { eventId, name, email, phone, industry } = await req.json();
+
+    if (!eventId || !name || !email || !phone || !industry) {
+      return NextResponse.json({ error: "Campos obrigatórios ausentes" }, { status: 400 });
+    }
+
+    // Verificar se já existe (opcional, mas bom ter para evitar duplicados acidentais)
+    const { data: existingAttendee } = await supabaseAdmin
+      .from("Attendee")
+      .select("id")
+      .eq("email", email)
+      .eq("eventId", eventId)
+      .single();
+
+    if (existingAttendee) {
+      return NextResponse.json({ error: "Este email já está inscrito no evento." }, { status: 400 });
+    }
+
+    // Criar registo do inscrito
+    const { data: attendee, error: insertError } = await supabaseAdmin
+      .from("Attendee")
+      .insert({
+        id: crypto.randomUUID(),
+        name,
+        email,
+        phone,
+        industry,
+        interests: ["Networking"], 
+        eventId,
+        paymentStatus: "Pendente",
+        presenceStatus: "Presente", // Assumimos que se está a ser adicionado no check-in, já está presente!
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    return NextResponse.json({ success: true, attendee });
+  } catch (error) {
+    console.error("Erro ao adicionar inscrito no checkin:", error);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}

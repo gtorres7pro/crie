@@ -396,7 +396,7 @@ export default function AdminEventsPage() {
               
               {activeTab === "general" ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-zinc-500 uppercase">Título do Evento</label>
                       <input name="title" required defaultValue={editingEvent?.title} className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4" />
@@ -412,7 +412,7 @@ export default function AdminEventsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-zinc-500 uppercase">Data e Hora</label>
                       <input name="date" type="datetime-local" required defaultValue={editingEvent?.date ? new Date(new Date(editingEvent.date).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ""} className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4" />
@@ -423,7 +423,7 @@ export default function AdminEventsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-zinc-500 uppercase">Vagas</label>
                       <input name="capacity" type="number" required defaultValue={editingEvent?.capacity} className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4" />
@@ -472,7 +472,7 @@ export default function AdminEventsPage() {
                     </label>
                   </div>
 
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
                     <button 
                       type="button" 
                       onClick={() => { setShowModal(false); setError(null); }} 
