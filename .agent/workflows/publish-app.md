@@ -11,22 +11,21 @@ Este workflow automatiza o processo de enviar as alterações locais para o GitH
 ## Passos
 
 ### 1. Sincronizar Código com GitHub
+Certifica-te de que todas as alterações estão salvas.
 // turbo
 ```bash
 git add .
-git commit -m "Admin Panel Refinement: API refactor to Prisma and bug fixes"
+# Substitui a mensagem por algo descritivo se necessário
+git commit -m "Deployment fix: Database schema sync and stability improvements"
 git push origin main
 ```
 
 ### 2. Disparar Deploy no Coolify
-Como o Coolify está configurado para monitorizar a branch `main`, o deploy deve ser iniciado automaticamente se o Webhook estiver configurado. 
-Caso contrário, podes usar a ferramenta de MCP ou a UI do Coolify.
-
-Para forçar um reinício (caso as variáveis de ambiente tenham mudado):
+O Coolify disparará o build automaticamente ao detetar o push na branch `main`.
+Podes acompanhar o progresso no painel do Coolify ou usando:
 // turbo
 ```bash
-# UUID da aplicação 'crie' recuperado: aovr6fy9lmgqjw2siy7bdjri
-# (Este comando reinicia a aplicação com o código mais recente da branch main)
+# O status deve mudar de 'in_progress' para 'success'
 ```
 
 ### 3. Configuração de DNS na Hostinger (Manual)
