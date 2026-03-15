@@ -1,21 +1,12 @@
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null as any;
-
-// GET: List all attendees
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
-  const userId = session?.user?.id as string;
-  const userCityIds = session?.user?.cityIds || [];
 
   if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER", "APOIADOR"].includes(role)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -26,64 +17,64 @@ export async function GET(req: Request) {
     const eventId = searchParams.get("eventId");
     const cityId = searchParams.get("cityId");
 
-    // 1. Fetch accessible event IDs based on role
-    let eventQuery = supabaseAdmin
-      .from('Event')
-      .select('id, title, date, cityId');
-
+    // Lógica simplificada: como Prisma já lida com relacionamentos, validamos o acesso pelo evento/cidade permitidos
+    let eventWhere: any = {};
+    
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-      // Full Access
+      // Todos
     } else if (role === "REGIONAL_LEADER") {
-      const { data: ledCities } = await supabaseAdmin
-        .from('City')
-        .select('id')
-        .eq('regionalLeaderId', userId);
-      const ledCityIds = ledCities?.map((c: any) => c.id) || [];
-      eventQuery = eventQuery.in('cityId', ledCityIds);
+      eventWhere = {
+        city: {
+          OR: [
+            { regionalLeaderId: session.user.id },
+            { users: { some: { id: session.user.id } } }
+          ]
+        }
+      };
     } else {
-      eventQuery = eventQuery.in('cityId', userCityIds);
+      eventWhere = {
+        city: {
+          users: { some: { id: session.user.id } }
+        }
+      };
     }
 
-    const { data: accessibleEvents, error: eventError } = await eventQuery.order('date', { ascending: false });
-    if (eventError) throw eventError;
-
-    const accessibleEventIds = accessibleEvents?.map((e: any) => e.id) || [];
-
-    // 2. Query Attendees
-    let attendeeQuery = supabaseAdmin
-      .from('Attendee')
-      .select(`
-        *,
-        event:Event(title, cityId)
-      `)
-      .order('createdAt', { ascending: false });
-
-    // Filter by specific event if provided, otherwise filter by all accessible events
     if (eventId && eventId !== "all") {
-      attendeeQuery = attendeeQuery.eq('eventId', eventId);
+      eventWhere.id = eventId;
     } else if (cityId && cityId !== "all") {
-      // Filter by cityId (only for events in that city)
-      const eventIdsInCity = accessibleEvents?.filter((e: any) => e.cityId === cityId).map((e: any) => e.id) || [];
-      attendeeQuery = attendeeQuery.in('eventId', eventIdsInCity);
-    } else {
-      // Must only show attendees for events the user can see
-      attendeeQuery = attendeeQuery.in('eventId', accessibleEventIds);
+      eventWhere.cityId = cityId;
     }
 
-    const { data: attendees, error: attendeeError } = await attendeeQuery;
-    if (attendeeError) throw attendeeError;
+    // Buscar os inscritos cujos eventos correspondem aos critérios
+    const attendees = await prisma.attendee.findMany({
+      where: {
+        event: eventWhere
+      },
+      include: {
+        event: {
+          select: { title: true, cityId: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Buscar os eventos permitidos para o filtro do dropdown
+    const events = await prisma.event.findMany({
+      where: role === "MASTER_ADMIN" || role === "GLOBAL_LEADER" ? {} : eventWhere,
+      select: { id: true, title: true, date: true, cityId: true },
+      orderBy: { date: 'desc' }
+    });
 
     return NextResponse.json({
-      attendees: attendees || [],
-      events: accessibleEvents || []
+      attendees,
+      events
     });
   } catch (error: any) {
-    console.error("Attendees GET API Error:", error.message);
+    console.error("Attendees GET API Error:", error);
     return NextResponse.json({ error: "Erro ao buscar dados.", details: error.message }, { status: 500 });
   }
 }
 
-// PATCH: Update attendee status (payment or presence)
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
@@ -103,18 +94,41 @@ export async function PATCH(req: Request) {
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (presenceStatus) updateData.presenceStatus = presenceStatus;
 
-    const { data, error } = await supabaseAdmin
-      .from('Attendee')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await prisma.attendee.update({
+      where: { id },
+      data: updateData
+    });
 
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("Dashboard Patch Error:", error.message);
+    console.error("Dashboard Patch Error:", error);
     return NextResponse.json({ error: "Erro ao atualizar dados.", details: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  const role = session?.user?.role as string;
+
+  if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role)) {
+    return NextResponse.json({ error: "Não autorizado para deletar inscrições" }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
+    }
+
+    await prisma.attendee.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Delete Attendee Error:", error);
+    return NextResponse.json({ error: "Erro ao cancelar inscrição.", details: error.message }, { status: 500 });
   }
 }

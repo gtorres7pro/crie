@@ -16,7 +16,8 @@ import {
   FileText,
   UserCheck,
   CreditCard,
-  MapPin
+  MapPin,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export default function AdminPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   async function handleInvite() {
     setSending(true);
@@ -74,6 +76,29 @@ export default function AdminPage() {
       alert("Erro de conexão");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleDeleteAttendee(id: string) {
+    if (!confirm("Tem a certeza que deseja cancelar esta inscrição? O participante será removido apenas deste evento.")) {
+      return;
+    }
+
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`/api/admin/attendees?id=${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setAttendees(prev => prev.filter(a => a.id !== id));
+      } else {
+        const error = await res.json();
+        alert(error.error || "Erro ao excluir inscrição");
+      }
+    } catch (err) {
+      alert("Erro de conexão ao tentar excluir");
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -413,10 +438,53 @@ export default function AdminPage() {
                       {attendee.paymentStatus.toUpperCase()}
                     </button>
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <button className="text-zinc-700 hover:text-white transition-colors">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                  <td className="px-8 py-6 text-right relative">
+                    <div className="flex items-center justify-end gap-2">
+                       <button 
+                         onClick={() => setActiveMenuId(activeMenuId === attendee.id ? null : attendee.id)}
+                         className="p-2 text-zinc-500 hover:text-white transition-all rounded-lg hover:bg-zinc-800"
+                       >
+                         <MoreHorizontal className="w-5 h-5" />
+                       </button>
+
+                       <AnimatePresence>
+                         {activeMenuId === attendee.id && (
+                           <>
+                             <div 
+                               className="fixed inset-0 z-[60]" 
+                               onClick={() => setActiveMenuId(null)}
+                             />
+                             <motion.div
+                               initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                               animate={{ opacity: 1, scale: 1, y: 0 }}
+                               exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                               className="absolute right-8 top-16 w-48 bg-[#111111] border border-zinc-800 rounded-2xl shadow-2xl z-[70] py-2 overflow-hidden"
+                             >
+                               <button
+                                 onClick={() => {
+                                   cycleStatus(attendee.id, attendee.paymentStatus);
+                                   setActiveMenuId(null);
+                                 }}
+                                 className="w-full text-left px-4 py-3 text-xs font-bold text-zinc-300 hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2"
+                               >
+                                 <RefreshCcw className="w-4 h-4" />
+                                 ALTERAR STATUS
+                               </button>
+                               <button
+                                 onClick={() => {
+                                   handleDeleteAttendee(attendee.id);
+                                   setActiveMenuId(null);
+                                 }}
+                                 className="w-full text-left px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                                 CANCELAR INSCRIÇÃO
+                               </button>
+                             </motion.div>
+                           </>
+                         )}
+                       </AnimatePresence>
+                    </div>
                   </td>
                 </motion.tr>
               ))}

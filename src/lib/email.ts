@@ -13,8 +13,13 @@ export async function sendEmail({
   html: string;
 }) {
   try {
+    if (!resend) {
+      console.warn('RESEND_API_KEY não configurada. Simulando envio de email.');
+      return { success: true, simulated: true };
+    }
+
     const { data, error } = await resend.emails.send({
-      from: `CRIE Braga <${process.env.OFFICIAL_EMAIL || 'onboarding@resend.dev'}>`, // Remetente dinâmico
+      from: `CRIE Braga <${process.env.OFFICIAL_EMAIL || 'onboarding@resend.dev'}>`,
       to,
       subject,
       html,

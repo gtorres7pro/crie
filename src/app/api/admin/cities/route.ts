@@ -1,59 +1,66 @@
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null as any;
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  const userCityIds = session?.user?.cityIds || [];
 
   if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER", "APOIADOR"].includes(role as string)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
   try {
-    let query = supabaseAdmin
-      .from('City')
-      .select(`
-        *,
-        regionalLeader:User!regionalLeaderId(name, email),
-        events:Event(count),
-        users:_UserCities(count)
-      `)
-      .order('name', { ascending: true });
-
+    let where: any = {};
+    
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-      // Todos
+       // Ver todas
     } else if (role === "REGIONAL_LEADER") {
-      query = query.or(`id.in.(${userCityIds.join(',')}),regionalLeaderId.eq.${session.user.id}`);
+       // Cidades que lidera ou que está atrelado
+       where = {
+         OR: [
+           { regionalLeaderId: session.user.id },
+           { users: { some: { id: session.user.id } } }
+         ]
+       };
     } else {
-      query = query.in('id', userCityIds);
+       // Local Leader ou Apoiador: Apenas cidades atreladas
+       where = {
+         users: { some: { id: session.user.id } }
+       };
     }
 
-    const { data: cities, error } = await query;
-    if (error) throw error;
+    const cities = await prisma.city.findMany({
+      where,
+      include: {
+        regionalLeader: {
+          select: { name: true, email: true }
+        },
+        users: { // Em Prisma, representam os Local Leaders atrelados via UserCities
+          select: { id: true, name: true, email: true }
+        },
+        _count: {
+          select: {
+            events: true,
+            users: true
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
 
-    // Map to match Prisma's counts structure if possible, or just return as is
-    const formattedCities = (cities || []).map((c: any) => ({
+    // Remapear para manter compatibilidade com a interface que espera "localLeaders"
+    const formattedCities = cities.map(c => ({
       ...c,
-      _count: {
-        events: c.events?.[0]?.count || 0,
-        users: c.users?.[0]?.count || 0
-      }
+      localLeaders: c.users // No frontend, users atrelados à cidade são mostrados como local leaders
     }));
 
     return NextResponse.json(formattedCities);
   } catch (error: any) {
-    console.error("Cities API Error:", error.message);
-    return NextResponse.json({ error: "Erro ao buscar cidades" }, { status: 500 });
+    console.error("Cities GET Error:", error);
+    return NextResponse.json({ error: "Erro ao buscar cidades", details: error.message }, { status: 500 });
   }
 }
 
@@ -65,36 +72,28 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, slug, regionName, regionalLeaderId } = await req.json();
+    const { name, slug, regionName, regionalLeaderId, localLeaderIds } = await req.json();
 
     if (!name || !slug) {
       return NextResponse.json({ error: "Nome e Slug são obrigatórios" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('City')
-      .insert({
+    const city = await prisma.city.create({
+      data: {
         name,
         slug,
         regionName,
-        regionalLeaderId: regionalLeaderId || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === '23505') { // Postgres code for duplicate key
-        return NextResponse.json({ error: "O slug da cidade deve ser único" }, { status: 400 });
+        regionalLeaderId: regionalLeaderId || null,
+        users: localLeaderIds && localLeaderIds.length > 0 ? {
+          connect: localLeaderIds.map((id: string) => ({ id }))
+        } : undefined
       }
-      throw error;
-    }
+    });
 
-    return NextResponse.json({ city: data });
+    return NextResponse.json(city);
   } catch (error: any) {
-    console.error("Create City API Error:", error.message);
-    return NextResponse.json({ 
-      error: "Erro ao criar cidade",
-      details: error.message
-    }, { status: 500 });
+    console.error("Create City API Error:", error);
+    if (error.code === 'P2002') return NextResponse.json({ error: "O slug da cidade deve ser único" }, { status: 400 });
+    return NextResponse.json({ error: "Erro ao criar cidade", details: error.message }, { status: 500 });
   }
 }

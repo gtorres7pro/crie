@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null as any;
+import { prisma } from "@/lib/prisma";
 
 // GET: List all events with summary stats
 export async function GET(req: Request) {
@@ -24,44 +17,41 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const cityIdParam = searchParams.get("cityId");
 
-    let query = supabaseAdmin
-      .from('Event')
-      .select(`
-        *,
-        city:City(name),
-        attendees:Attendee(id, presenceStatus, paymentStatus),
-        finances:Finance(id, type, amount)
-      `)
-      .order('date', { ascending: true });
+    let where: any = {};
 
     // 1. Isolação por Role
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
       // Acesso Total
     } else if (role === "REGIONAL_LEADER") {
       // Apenas cidades lideradas regionalmente
-      const { data: ledCities } = await supabaseAdmin
-        .from('City')
-        .select('id')
-        .eq('regionalLeaderId', session.user.id);
-      
-      const ledCityIds = ledCities?.map((c: any) => c.id) || [];
-      query = query.in('cityId', ledCityIds);
+      const ledCities = await prisma.city.findMany({
+        where: { regionalLeaderId: session.user.id },
+        select: { id: true }
+      });
+      const ledCityIds = ledCities.map(c => c.id);
+      where.cityId = { in: ledCityIds };
     } else {
       // LOCAL_LEADER & APOIADOR: Apenas suas cidades
-      query = query.in('cityId', userCityIds);
+      where.cityId = { in: userCityIds };
     }
 
     // 2. Filtro ad-hoc
     if (cityIdParam && cityIdParam !== "all") {
-      query = query.eq('cityId', cityIdParam);
+      where.cityId = cityIdParam;
     }
 
-    const { data: events, error } = await query;
-
-    if (error) throw error;
+    const events = await prisma.event.findMany({
+      where,
+      include: {
+        city: { select: { name: true } },
+        attendees: { select: { id: true, presenceStatus: true, paymentStatus: true } },
+        finances: { select: { id: true, type: true, amount: true } }
+      },
+      orderBy: { date: 'asc' }
+    });
 
     // Process stats for each event
-    const eventsWithStats = (events || []).map((event: any) => {
+    const eventsWithStats = events.map((event: any) => {
       const totalAttendees = event.attendees?.length || 0;
       const present = event.attendees?.filter((a: any) => a.presenceStatus === "Presente").length || 0;
       const missing = event.attendees?.filter((a: any) => a.presenceStatus === "Faltou").length || 0;
@@ -74,7 +64,6 @@ export async function GET(req: Request) {
       
       return {
         ...event,
-        city: event.city, // Supabase returns object directly
         stats: {
           total: totalAttendees,
           present,
@@ -89,7 +78,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(eventsWithStats);
   } catch (error: any) {
-    console.error("Events GET API Error:", error.message);
+    console.error("Events GET API Error:", error);
     return NextResponse.json({ error: "Erro ao buscar eventos.", details: error.message }, { status: 500 });
   }
 }
@@ -116,20 +105,17 @@ export async function POST(req: Request) {
     // Validação de permissão para criar evento na cidade
     if (role !== "MASTER_ADMIN" && role !== "GLOBAL_LEADER") {
       if (role === "REGIONAL_LEADER") {
-         const { data: city } = await supabaseAdmin
-           .from('City')
-           .select('id')
-           .match({ id: cityId, regionalLeaderId: userId })
-           .single();
+         const city = await prisma.city.findFirst({
+           where: { id: cityId, regionalLeaderId: userId }
+         });
          if (!city) return NextResponse.json({ error: "Não tens permissão para esta cidade" }, { status: 403 });
       } else if (!userCityIds.includes(cityId)) {
          return NextResponse.json({ error: "Não tens permissão para esta cidade" }, { status: 403 });
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('Event')
-      .insert({
+    const event = await prisma.event.create({
+      data: {
         title,
         description,
         date: new Date(date),
@@ -139,15 +125,12 @@ export async function POST(req: Request) {
         status: status || "DRAFT",
         bannerUrl,
         cityId
-      })
-      .select()
-      .single();
+      }
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(event);
   } catch (error: any) {
-    console.error("Create Event Error:", error.message);
+    console.error("Create Event Error:", error);
     return NextResponse.json({ error: "Erro ao criar evento.", details: error.message }, { status: 500 });
   }
 }

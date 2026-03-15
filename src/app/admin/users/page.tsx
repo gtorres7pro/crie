@@ -6,7 +6,6 @@ import {
   Users2, 
   UserPlus, 
   Search, 
-  MoreVertical, 
   Shield, 
   MapPin,
   Phone,
@@ -24,6 +23,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -32,6 +32,7 @@ export default function UsersPage() {
     role: "APOIADOR",
     cityIds: [] as string[]
   });
+  const [editingUser, setEditingUser] = useState<any>(null);
   const [cities, setCities] = useState<any[]>([]);
   const [status, setStatus] = useState({ type: "", message: "" });
 
@@ -56,7 +57,7 @@ export default function UsersPage() {
     try {
       const res = await fetch("/api/admin/cities");
       const data = await res.json();
-      if (data.cities) setCities(data.cities);
+      if (Array.isArray(data)) setCities(data);
     } catch (error) {
       console.error("Error fetching cities:", error);
     }
@@ -81,11 +82,64 @@ export default function UsersPage() {
       }
 
       setStatus({ type: "success", message: "Usuário criado com sucesso!" });
-      setIsModalOpen(false);
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setNewUser({ name: "", email: "", phone: "", password: "", role: "APOIADOR", cityIds: [] });
+        setStatus({ type: "", message: "" });
+      }, 1500);
       fetchUsers();
-      setNewUser({ name: "", email: "", phone: "", password: "", role: "APOIADOR", cityIds: [] });
     } catch (error: any) {
       setStatus({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus({ type: "", message: "" });
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingUser),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.details ? `${data.error}: ${data.details}` : (data.error || "Erro ao atualizar usuário"));
+      }
+
+      setStatus({ type: "success", message: "Usuário atualizado com sucesso!" });
+      setTimeout(() => {
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+        setStatus({ type: "", message: "" });
+      }, 1500);
+      fetchUsers();
+    } catch (error: any) {
+      setStatus({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users?id=${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
     } finally {
       setLoading(false);
     }
@@ -180,10 +234,26 @@ export default function UsersPage() {
               </div>
 
               <div className="pt-4 border-t border-zinc-800/50 flex gap-2">
-                <button className="flex-1 py-2 rounded-xl bg-zinc-800/50 text-white font-bold text-xs hover:bg-zinc-800 transition-all">
+                <button 
+                  onClick={() => {
+                    setEditingUser({
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      phone: user.phone || "",
+                      role: user.role,
+                      cityIds: user.cities?.map((c: any) => c.id) || []
+                    });
+                    setIsEditModalOpen(true);
+                  }}
+                  className="flex-1 py-2 rounded-xl bg-zinc-800/50 text-white font-bold text-xs hover:bg-zinc-800 transition-all"
+                >
                   Editar
                 </button>
-                <button className="px-3 py-2 rounded-xl bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white transition-all">
+                <button 
+                  onClick={() => handleDeleteUser(user.id)}
+                  className="px-3 py-2 rounded-xl bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white transition-all"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -333,6 +403,153 @@ export default function UsersPage() {
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                   Finalizar Cadastro
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Editar Usuário */}
+      <AnimatePresence>
+        {isEditModalOpen && editingUser && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setIsEditModalOpen(false); setEditingUser(null); }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-black text-white">Editar Usuário</h2>
+                <button onClick={() => { setIsEditModalOpen(false); setEditingUser(null); }} className="p-2 text-zinc-500 hover:text-white transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateUser} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Nome</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                      value={editingUser.name}
+                      onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Email</label>
+                    <input
+                      required
+                      type="email"
+                      className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                      value={editingUser.email}
+                      onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Telefone</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                      value={editingUser.phone}
+                      onChange={(e) => setEditingUser({...editingUser, phone: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2 opacity-50">Senha (Deixe vazio para manter)</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                      value={editingUser.password || ""}
+                      onChange={(e) => setEditingUser({...editingUser, password: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Função (Role)</label>
+                  <select
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
+                    value={editingUser.role}
+                    onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                  >
+                    <option value="APOIADOR">Apoiador (Check-in)</option>
+                    {["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER"].includes(session?.user?.role as string) && (
+                      <option value="LOCAL_LEADER">Líder Local (Gestão Cidade)</option>
+                    )}
+                    {["MASTER_ADMIN", "GLOBAL_LEADER"].includes(session?.user?.role as string) && (
+                      <option value="REGIONAL_LEADER">Líder Regional (Multi-Cidades)</option>
+                    )}
+                    {["MASTER_ADMIN", "GLOBAL_LEADER"].includes(session?.user?.role as string) && (
+                      <option value="GLOBAL_LEADER">Líder Global (Visualização Total)</option>
+                    )}
+                    {session?.user?.role === "MASTER_ADMIN" && (
+                      <option value="MASTER_ADMIN">Master Admin (Config. Sistema)</option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Cidades Atreladas (Opcional)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {cities.map(city => {
+                      const isSelected = editingUser.cityIds.includes(city.id);
+                      return (
+                        <button
+                          key={city.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setEditingUser({...editingUser, cityIds: editingUser.cityIds.filter((id: string) => id !== city.id)});
+                            } else {
+                              setEditingUser({...editingUser, cityIds: [...editingUser.cityIds, city.id]});
+                            }
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2",
+                            isSelected 
+                              ? "bg-amber-500 border-amber-500 text-black" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                          {city.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {status.message && (
+                  <div className={cn(
+                    "p-4 rounded-2xl text-sm font-bold",
+                    status.type === "success" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                  )}>
+                    {status.message}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                  Salvar Alterações
                 </button>
               </form>
             </motion.div>

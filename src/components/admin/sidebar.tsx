@@ -78,17 +78,20 @@ export default function Sidebar() {
       </div>
 
       <div className="mt-auto p-8 space-y-4">
-        <div className="px-4 py-4 bg-zinc-900/50 rounded-2xl border border-zinc-800/50">
+        <Link 
+          href="/admin/profile"
+          className="block px-4 py-4 bg-zinc-900/50 rounded-2xl border border-zinc-800/50 hover:border-amber-500/30 transition-all group"
+        >
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-4 h-4 text-amber-500" />
+             <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center shrink-0 group-hover:bg-amber-500 transition-all">
+                <ShieldCheck className="w-4 h-4 text-amber-500 group-hover:text-black transition-all" />
              </div>
              <div className="min-w-0">
                <p className="text-xs font-bold text-zinc-300 truncate">{session?.user?.name || "Apoiador"}</p>
                <p className="text-[10px] text-zinc-500 uppercase font-black truncate">{session?.user?.role?.replace(/_/g, ' ') || "Usuário"}</p>
              </div>
           </div>
-        </div>
+        </Link>
 
         <button 
           onClick={() => signOut({ callbackUrl: "/" })}

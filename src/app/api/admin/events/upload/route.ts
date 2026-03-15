@@ -38,16 +38,20 @@ export async function POST(req: Request) {
       });
 
     if (error) {
-      // Create bucket if it doesn't exist (Events bucket)
-      if (error.message.includes("bucket not found")) {
-         await supabaseAdmin.storage.createBucket("events", { public: true });
-         // Retry upload
-         const { data: retryData, error: retryError } = await supabaseAdmin.storage
-           .from("events")
-           .upload(filePath, file);
-         if (retryError) throw retryError;
+      // Check if it's a bucket missing error
+      if (error.message?.toLowerCase().includes("not found") || error.message?.toLowerCase().includes("bucket")) {
+          try {
+            await supabaseAdmin.storage.createBucket("events", { public: true });
+          } catch (bucketErr) {
+            console.error("Bucket creation failed:", bucketErr);
+          }
+          // Retry upload
+          const { data: retryData, error: retryError } = await supabaseAdmin.storage
+            .from("events")
+            .upload(filePath, file, { upsert: true });
+          if (retryError) throw retryError;
       } else {
-         throw error;
+          throw error;
       }
     }
 

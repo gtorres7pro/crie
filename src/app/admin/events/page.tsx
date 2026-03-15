@@ -136,6 +136,7 @@ export default function AdminEventsPage() {
       ...data,
       capacity: Number(data.capacity),
       price: Number(data.price),
+      bannerUrl: editingEvent?.bannerUrl || null,
     };
 
     // Upload banner if selected

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { getRegistrationEmailHtml } from "@/lib/email-templates";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase Admin strictly for Server-Side Use
+// Initialize Supabase Admin strictly for Storage (if needed for proof upload)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
 const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
   ? createClient(supabaseUrl, supabaseServiceKey)
   : null as any;
@@ -14,7 +16,7 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
 const registerSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("Email inválido"),
-  phone: z.string().regex(/^\+[1-9]\d{1,14}$/, "Telefone deve estar no formato E.164 (ex: +351912345678)"),
+  phone: z.string().min(9, "Telefone inválido").regex(/^[+]?[\d\s-]{9,}$/, "Formato de telefone inválido"),
   industry: z.string().min(2, "Área/Indústria é obrigatória"),
 });
 
@@ -38,38 +40,37 @@ export async function POST(req: Request) {
 
     // Buscar o evento ativo (LIVE e que não passou)
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const { data: event, error: eventError } = await supabaseAdmin
-      .from("Event")
-      .select("*")
-      .eq("status", "LIVE")
-      .gte("date", today)
-      .order("date", { ascending: true })
-      .limit(1)
-      .single();
+    const event = await prisma.event.findFirst({
+      where: {
+        status: "LIVE",
+        date: { gte: today }
+      },
+      include: {
+        _count: {
+          select: { attendees: true }
+        }
+      },
+      orderBy: { date: 'asc' }
+    });
 
-    if (eventError || !event) {
+    if (!event) {
       return NextResponse.json({ error: "Nenhum evento ativo disponível para inscrição." }, { status: 404 });
     }
 
     // Verificar se atingiu a capacidade
-    const { count: attendeeCount } = await supabaseAdmin
-      .from("Attendee")
-      .select("*", { count: 'exact', head: true })
-      .eq("eventId", event.id);
-
-    if (attendeeCount !== null && attendeeCount >= event.capacity) {
+    if (event._count.attendees >= event.capacity) {
       return NextResponse.json({ error: "Lamento, as vagas para este evento já se encontram esgotadas." }, { status: 400 });
     }
 
     // Verificar se o email já está inscrito neste evento
-    const { data: existingAttendee } = await supabaseAdmin
-      .from("Attendee")
-      .select("id")
-      .eq("email", data.email)
-      .eq("eventId", event.id)
-      .single();
+    const existingAttendee = await prisma.attendee.findFirst({
+      where: {
+        email: data.email,
+        eventId: event.id
+      }
+    });
 
     if (existingAttendee) {
       return NextResponse.json({ error: "Este email já está inscrito no evento." }, { status: 400 });
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
 
     // Upload do comprovativo se existir
     let paymentProofUrl = null;
-    if (file && file.size > 0) {
+    if (file && file.size > 0 && supabaseAdmin) {
       const fileExt = file.name.split(".").pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const buffer = Buffer.from(await file.arrayBuffer());
@@ -100,49 +101,34 @@ export async function POST(req: Request) {
     }
 
     // Criar registo do inscrito
-    const { data: attendee, error: insertError } = await supabaseAdmin
-      .from("Attendee")
-      .insert({
-        id: crypto.randomUUID(),
+    const attendee = await prisma.attendee.create({
+      data: {
         name: data.name,
         email: data.email,
         phone: data.phone,
         industry: data.industry,
-        interests: ["Networking", "Crescimento"], // default interests
+        interests: ["Networking", "Crescimento"],
         eventId: event.id,
-        paymentStatus: paymentProofUrl ? "Pendente" : "Pendente", // Could be handled by admin
+        paymentStatus: "Pendente",
         presenceStatus: "Pendente",
         paymentProofUrl: paymentProofUrl,
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-        console.error("Supabase Insert Error:", insertError);
-        return NextResponse.json({ error: "Erro ao salvar a inscrição." }, { status: 500 });
-    }
+      }
+    });
 
     // Tentar enviar email de confirmação (Sem bloquear se falhar)
     try {
       await sendEmail({
         to: data.email,
         subject: "Confirmação de Inscrição - CRIE Braga",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h1 style="color: #b45309;">Olá ${data.name}!</h1>
-            <p>Recebemos a sua pré-inscrição para o <b>${event.title}</b>.</p>
-            <div style="background-color: #fffbeb; border: 1px solid #fde68a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin-top: 0;">Para confirmar a sua presença, por favor envie o investimento de <strong>6€</strong> por MB Way para:</p>
-                <h3 style="margin-bottom: 0;">+351 918 704 170 (Gabriel Torres)</h3>
-                ${paymentProofUrl ? '<p style="font-size: 12px; color: #666; margin-top: 10px;"><i>Recebemos o seu anexo de comprovativo e iremos validá-lo em breve.</i></p>' : ""}
-            </div>
-            <p><strong>Data:</strong> 16 de Março de 2026 às 19:30h</p>
-            <p><strong>Local:</strong> Lagoinha Braga (Trav. rua do Parque Comercial, Pavilhão 1, Nogueira - Braga)</p>
-            <br/>
-            <p>Estamos entusiasmados por nos conectarmos!</p>
-            <p><strong>Equipa CRIE Braga</strong></p>
-          </div>
-        `
+        html: getRegistrationEmailHtml({
+          name: data.name,
+          eventTitle: event.title,
+          eventDate: new Date(event.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + 'h',
+          eventLocation: event.location,
+          eventPrice: event.price,
+          bannerUrl: event.bannerUrl,
+          paymentProofUrl: paymentProofUrl
+        })
       });
     } catch (e) {
       console.error("Falha ao enviar email, mas inscrição foi guardada.", e);

@@ -1,15 +1,11 @@
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null as any;
+import { sendEmail } from "@/lib/email";
+import { getWelcomeEmailHtml } from "@/lib/email-templates";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -20,45 +16,61 @@ export async function GET() {
   }
 
   try {
-    let query = supabaseAdmin
-      .from('User')
-      .select(`
-        id, name, email, phone, role,
-        cities:City(id, name)
-      `)
-      .order('name', { ascending: true });
-
-    // Filtros baseados na role
+    // Definir filtros baseados na role
+    let where: any = {};
+    
     if (role === "LOCAL_LEADER") {
-      const { data: userCities } = await supabaseAdmin
-        .from('_UserCities')
-        .select('B')
-        .eq('A', session.user.id);
-      const cityIds = userCities?.map((c: any) => c.B) || [];
-      // Note: This filtering logic might need to be refined for nested many-to-many
-      // for now, we'll fetch then filter locally for simplicity if the RPC/nested filter is complex
-      const { data: allUsers } = await query;
-      const filtered = allUsers?.filter((u: any) => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
-      return NextResponse.json({ users: filtered });
-    }
-    else if (role === "REGIONAL_LEADER") {
-       const { data: ledCities } = await supabaseAdmin
-         .from('City')
-         .select('id')
-         .eq('regionalLeaderId', session.user.id);
-       const cityIds = ledCities?.map((c: any) => c.id) || [];
-       const { data: allUsers } = await query;
-       const filtered = allUsers?.filter((u: any) => u.cities.some((c: any) => cityIds.includes(c.id))) || [];
-       return NextResponse.json({ users: filtered });
+      // Usuários que pertencem às mesmas cidades que o Líder Local
+      const userWithCities = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { cities: { select: { id: true } } }
+      });
+      const cityIds = userWithCities?.cities.map(c => c.id) || [];
+      where = {
+        cities: {
+          some: {
+            id: { in: cityIds }
+          }
+        }
+      };
+    } else if (role === "REGIONAL_LEADER") {
+      // Usuários nas cidades que o líder regional lidera
+      const ledCities = await prisma.city.findMany({
+        where: { regionalLeaderId: session.user.id },
+        select: { id: true }
+      });
+      const cityIds = ledCities.map(c => c.id);
+      where = {
+        cities: {
+          some: {
+            id: { in: cityIds }
+          }
+        }
+      };
     }
 
-    const { data: users, error } = await query;
-    if (error) throw error;
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        cities: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
 
     return NextResponse.json({ users });
   } catch (error: any) {
-    console.error("Users API Error:", error.message);
-    return NextResponse.json({ error: "Erro ao buscar usuários" }, { status: 500 });
+    console.error("Users API Error:", error);
+    return NextResponse.json({ error: "Erro ao buscar usuários", details: error.message }, { status: 500 });
   }
 }
 
@@ -80,17 +92,12 @@ export async function POST(req: Request) {
 
     // Regras de Hierarquia
     if (currentRole === "MASTER_ADMIN") {
-      // Allow
+      // Permite tudo
     } else if (currentRole === "GLOBAL_LEADER") {
-      if (role === "MASTER_ADMIN") return NextResponse.json({ error: "Proibido" }, { status: 403 });
+      if (role === "MASTER_ADMIN") return NextResponse.json({ error: "Não permitido" }, { status: 403 });
     } else if (currentRole === "REGIONAL_LEADER") {
        if (!["LOCAL_LEADER", "APOIADOR"].includes(role)) {
          return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
-       }
-       const { data: ledCities } = await supabaseAdmin.from('City').select('id').eq('regionalLeaderId', currentUserId);
-       const ledCityIds = ledCities?.map((c: any) => c.id) || [];
-       if (cityIds?.some((id: string) => !ledCityIds.includes(id))) {
-         return NextResponse.json({ error: "Cidade não liderada por você" }, { status: 403 });
        }
     } else if (currentRole === "LOCAL_LEADER") {
       if (role !== "APOIADOR") return NextResponse.json({ error: "Apenas Apoiadores" }, { status: 403 });
@@ -98,32 +105,38 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('User')
-      .insert({
-        id: crypto.randomUUID(),
+    const user = await prisma.user.create({
+      data: {
         name,
         email: email.toLowerCase(),
         phone,
         password: hashedPassword,
         role,
-      })
-      .select()
-      .single();
+        cities: cityIds && cityIds.length > 0 ? {
+          connect: cityIds.map((id: string) => ({ id }))
+        } : undefined
+      }
+    });
 
-    if (userError) {
-      if (userError.code === '23505') return NextResponse.json({ error: "Email já cadastrado" }, { status: 400 });
-      throw userError;
-    }
-
-    if (cityIds && cityIds.length > 0) {
-      const relations = cityIds.map((cid: string) => ({ A: user.id, B: cid }));
-      await supabaseAdmin.from('_UserCities').insert(relations);
+    // Enviar Email de Boas-vindas
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Bem-vindo ao CRIE Braga!",
+        html: getWelcomeEmailHtml({
+          name,
+          email,
+          dashboardUrl: `${process.env.NEXTAUTH_URL}/auth/signin`
+        })
+      });
+    } catch (e) {
+      console.error("Boas-vindas: Falha ao enviar email", e);
     }
 
     return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } });
   } catch (error: any) {
-    console.error("Create User Error:", error.message);
+    console.error("Create User Error:", error);
+    if (error.code === 'P2002') return NextResponse.json({ error: "Email já cadastrado" }, { status: 400 });
     return NextResponse.json({ error: "Erro ao criar usuário", details: error.message }, { status: 500 });
   }
 }
@@ -131,23 +144,23 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   const currentRole = session?.user?.role as string;
-  const currentUserId = session?.user?.id as string;
 
   if (!session || !["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(currentRole)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
   try {
-    const { id, name, email, phone, role, cityIds } = await req.json();
+    const { id, name, email, phone, role, cityIds, password } = await req.json();
     if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
 
-    // Hierarchy check
+    // Hierarquia básica
     if (currentRole !== "MASTER_ADMIN") {
-       const { data: targetUser } = await supabaseAdmin.from('User').select('role').eq('id', id).single();
+       const targetUser = await prisma.user.findUnique({ where: { id }, select: { role: true } });
        if (!targetUser) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
-       const roleHierarchy = ["APOIADOR", "LOCAL_LEADER", "REGIONAL_LEADER", "GLOBAL_LEADER", "MASTER_ADMIN"];
-       if (roleHierarchy.indexOf(targetUser.role) >= roleHierarchy.indexOf(currentRole)) {
-          return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+       
+       const roles = ["APOIADOR", "LOCAL_LEADER", "REGIONAL_LEADER", "GLOBAL_LEADER", "MASTER_ADMIN"];
+       if (roles.indexOf(targetUser.role) >= roles.indexOf(currentRole)) {
+          return NextResponse.json({ error: "Sem permissão para alterar este nível" }, { status: 403 });
        }
     }
 
@@ -156,26 +169,61 @@ export async function PATCH(req: Request) {
     if (email) updateData.email = email.toLowerCase();
     if (phone) updateData.phone = phone;
     if (role) updateData.role = role;
-
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from('User')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-
+    if (password) updateData.password = await bcrypt.hash(password, 10);
+    
     if (cityIds) {
-      await supabaseAdmin.from('_UserCities').delete().eq('A', id);
-      const relations = cityIds.map((cid: string) => ({ A: id, B: cid }));
-      await supabaseAdmin.from('_UserCities').insert(relations);
+      updateData.cities = {
+        set: cityIds.map((cid: string) => ({ id: cid }))
+      };
     }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      include: {
+        cities: {
+          select: { id: true, name: true }
+        }
+      }
+    });
 
     return NextResponse.json(updated);
   } catch (error: any) {
-    console.error("Update User Error:", error.message);
+    console.error("Update User Error:", error);
     return NextResponse.json({ error: "Erro ao atualizar usuário", details: error.message }, { status: 500 });
   }
 }
 
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "MASTER_ADMIN") {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+
+  if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
+
+  try {
+    // Primeiro desconectar de cidades para evitar erros de FK
+    await prisma.user.update({
+      where: { id },
+      data: {
+        cities: { set: [] },
+        ledCities: { set: [] }
+      }
+    });
+
+    // Remover logs de auditoria se houver
+    await prisma.auditLog.deleteMany({ where: { userId: id } });
+
+    // Excluir definitivamente
+    await prisma.user.delete({ where: { id } });
+    
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Delete User Error:", error);
+    return NextResponse.json({ error: "Erro ao excluir usuário", details: error.message }, { status: 500 });
+  }
+}

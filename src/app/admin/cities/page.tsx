@@ -12,7 +12,9 @@ import {
   Users,
   Loader2,
   X,
-  ChevronRight
+  ChevronRight,
+  Check,
+  Shield
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -22,25 +24,28 @@ export default function CitiesPage() {
   const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCity, setEditingCity] = useState<any>(null);
   const [newCity, setNewCity] = useState({
     name: "",
     slug: "",
     regionName: "",
-    regionalLeaderId: ""
+    regionalLeaderId: "",
+    localLeaderIds: [] as string[]
   });
-  const [regionalLeaders, setRegionalLeaders] = useState<any[]>([]);
+  const [potentialLeaders, setPotentialLeaders] = useState<any[]>([]);
   const [status, setStatus] = useState({ type: "", message: "" });
 
   useEffect(() => {
     fetchCities();
-    fetchRegionalLeaders();
+    fetchPotentialLeaders();
   }, []);
 
   const fetchCities = async () => {
     try {
       const res = await fetch("/api/admin/cities");
       const data = await res.json();
-      if (data.cities) setCities(data.cities);
+      if (Array.isArray(data)) setCities(data);
     } catch (error) {
       console.error("Error fetching cities:", error);
     } finally {
@@ -48,15 +53,16 @@ export default function CitiesPage() {
     }
   };
 
-  const fetchRegionalLeaders = async () => {
+  const fetchPotentialLeaders = async () => {
     try {
       const res = await fetch("/api/admin/users");
       const data = await res.json();
       if (data.users) {
-        setRegionalLeaders(data.users.filter((u: any) => u.role === "REGIONAL_LEADER"));
+        // Show all users as potential leaders
+        setPotentialLeaders(data.users);
       }
     } catch (error) {
-      console.error("Error fetching regional leaders:", error);
+      console.error("Error fetching potential leaders:", error);
     }
   };
 
@@ -79,11 +85,67 @@ export default function CitiesPage() {
       }
 
       setStatus({ type: "success", message: "Cidade criada com sucesso!" });
-      setIsModalOpen(false);
-      fetchCities();
-      setNewCity({ name: "", slug: "", regionName: "", regionalLeaderId: "" });
+      setTimeout(() => {
+        setIsModalOpen(false);
+        fetchCities();
+        setNewCity({ name: "", slug: "", regionName: "", regionalLeaderId: "", localLeaderIds: [] });
+        setStatus({ type: "", message: "" });
+      }, 1500);
     } catch (error: any) {
       setStatus({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateCity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus({ type: "", message: "" });
+
+    try {
+      const res = await fetch(`/api/admin/cities/${editingCity.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingCity),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao atualizar cidade");
+      }
+
+      setStatus({ type: "success", message: "Cidade atualizada com sucesso!" });
+      setTimeout(() => {
+        setIsEditModalOpen(false);
+        setEditingCity(null);
+        fetchCities();
+        setStatus({ type: "", message: "" });
+      }, 1500);
+    } catch (error: any) {
+      setStatus({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCity = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta cidade? Esta ação é irreversível e afetará eventos vinculados.")) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/cities/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchCities();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao excluir cidade");
+      }
+    } catch (error) {
+      console.error("Error deleting city:", error);
     } finally {
       setLoading(false);
     }
@@ -161,11 +223,49 @@ export default function CitiesPage() {
                   </div>
                 </div>
 
-                <div className="mt-auto pt-6 border-t border-zinc-800/50">
-                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Líder Regional</p>
-                  <p className="text-sm font-bold text-zinc-300">
-                    {city.regionalLeader?.name || "Não vinculado"}
-                  </p>
+                <div className="mt-auto pt-6 border-t border-zinc-800/50 flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Regional</p>
+                      <p className="text-xs font-bold text-zinc-300 truncate">
+                        {city.regionalLeader?.name || "---"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Locais</p>
+                      <p className="text-xs font-bold text-zinc-300 truncate">
+                        {city.localLeaders && city.localLeaders.length > 0 
+                          ? city.localLeaders.map((u: any) => u.name).join(", ") 
+                          : "---"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {session?.user?.role === "MASTER_ADMIN" && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingCity({
+                            id: city.id,
+                            name: city.name,
+                            regionName: city.regionName || "",
+                            regionalLeaderId: city.regionalLeaderId || "",
+                            localLeaderIds: city.localLeaders?.map((u: any) => u.id) || []
+                          });
+                          setIsEditModalOpen(true);
+                        }}
+                        className="flex-1 py-2 rounded-xl bg-zinc-800/50 text-white font-bold text-[10px] uppercase tracking-widest hover:bg-zinc-800 transition-all"
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCity(city.id)}
+                        className="px-3 py-2 rounded-xl bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white transition-all transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -188,7 +288,7 @@ export default function CitiesPage() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl"
+              className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl overflow-y-auto max-h-[90vh]"
             >
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-black text-white">Nova Cidade</h2>
@@ -215,18 +315,7 @@ export default function CitiesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Slug (URL)</label>
-                  <input
-                    required
-                    type="text"
-                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-zinc-400 focus:outline-none font-medium"
-                    value={newCity.slug}
-                    readOnly
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Região / Estado</label>
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2 font-medium">Região / Estado</label>
                   <input
                     type="text"
                     placeholder="Ex: Norte"
@@ -237,17 +326,48 @@ export default function CitiesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Vincular Líder Regional</label>
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líder Regional (Dedicado)</label>
                   <select
                     className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
                     value={newCity.regionalLeaderId}
                     onChange={(e) => setNewCity({...newCity, regionalLeaderId: e.target.value})}
                   >
                     <option value="">Nenhum (Opcional)</option>
-                    {regionalLeaders.map(leader => (
-                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
+                    {potentialLeaders.map(leader => (
+                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.role})</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líderes Locais (Operação)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {potentialLeaders.map(leader => {
+                      const isSelected = newCity.localLeaderIds.includes(leader.id);
+                      return (
+                        <button
+                          key={leader.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setNewCity({...newCity, localLeaderIds: newCity.localLeaderIds.filter(id => id !== leader.id)});
+                            } else {
+                              setNewCity({...newCity, localLeaderIds: [...newCity.localLeaderIds, leader.id]});
+                            }
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all flex items-center gap-2 uppercase tracking-tighter",
+                            isSelected 
+                              ? "bg-amber-500 border-amber-500 text-black" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3" /> : <Shield className="w-3" />}
+                          {leader.name}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {status.message && (
@@ -266,6 +386,120 @@ export default function CitiesPage() {
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                   Cadastrar Unidade
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Editar Cidade */}
+      <AnimatePresence>
+        {isEditModalOpen && editingCity && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setIsEditModalOpen(false); setEditingCity(null); }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-black text-white">Editar Cidade</h2>
+                <button onClick={() => { setIsEditModalOpen(false); setEditingCity(null); }} className="p-2 text-zinc-500 hover:text-white transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateCity} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Nome da Cidade</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                    value={editingCity.name}
+                    onChange={(e) => setEditingCity({...editingCity, name: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2 font-medium">Região / Estado</label>
+                  <input
+                    type="text"
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium"
+                    value={editingCity.regionName}
+                    onChange={(e) => setEditingCity({...editingCity, regionName: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líder Regional (Dedicado)</label>
+                  <select
+                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
+                    value={editingCity.regionalLeaderId}
+                    onChange={(e) => setEditingCity({...editingCity, regionalLeaderId: e.target.value})}
+                  >
+                    <option value="">Nenhum (Opcional)</option>
+                    {potentialLeaders.map(leader => (
+                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.role})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líderes Locais (Operação)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {potentialLeaders.map(leader => {
+                      const isSelected = editingCity.localLeaderIds.includes(leader.id);
+                      return (
+                        <button
+                          key={leader.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setEditingCity({...editingCity, localLeaderIds: editingCity.localLeaderIds.filter((id: string) => id !== leader.id)});
+                            } else {
+                              setEditingCity({...editingCity, localLeaderIds: [...editingCity.localLeaderIds, leader.id]});
+                            }
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all flex items-center gap-2 uppercase tracking-tighter",
+                            isSelected 
+                              ? "bg-amber-500 border-amber-500 text-black" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3" /> : <Shield className="w-3" />}
+                          {leader.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {status.message && (
+                  <div className={cn(
+                    "p-4 rounded-2xl text-sm font-bold",
+                    status.type === "success" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                  )}>
+                    {status.message}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-black py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                  Salvar Alterações
                 </button>
               </form>
             </motion.div>

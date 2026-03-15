@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -94,7 +95,12 @@ function SignInContent() {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-sm font-medium text-zinc-400">Senha</label>
-                <button type="button" className="text-xs text-amber-500/80 hover:text-amber-400 font-medium">Esqueceu a senha?</button>
+                <Link 
+              href="/auth/forgot-password"
+              className="text-amber-500 hover:text-amber-400 text-sm font-bold transition-colors text-right"
+            >
+              Esqueceu a senha?
+            </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />

@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null as any;
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -26,36 +19,30 @@ export async function POST(req: Request) {
     }
 
     // Check if event is locked
-    const { data: event } = await supabaseAdmin
-      .from("Event")
-      .select("financialLocked")
-      .eq("id", eventId)
-      .single();
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { financialLocked: true }
+    });
 
     if (event?.financialLocked) {
       return NextResponse.json({ error: "Este evento está com o financeiro fechado." }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("Finance")
-      .insert({
-        id: crypto.randomUUID(),
+    const finance = await prisma.finance.create({
+      data: {
         eventId,
         amount: Math.abs(Number(amount)),
         description,
         notes,
         receiptUrl,
         type
-      })
-      .select()
-      .single();
+      }
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
+    return NextResponse.json(finance);
+  } catch (error: any) {
     console.error("Finance Create Error:", error);
-    return NextResponse.json({ error: "Erro ao adicionar lançamento." }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao adicionar lançamento.", details: error.message }, { status: 500 });
   }
 }
 
@@ -72,39 +59,36 @@ export async function PATCH(req: Request) {
 
     if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
 
-    const { data: finance } = await supabaseAdmin
-      .from("Finance")
-      .select("eventId")
-      .eq("id", id)
-      .single();
+    const finance = await prisma.finance.findUnique({
+      where: { id },
+      select: { eventId: true }
+    });
 
-    const { data: event } = await supabaseAdmin
-      .from("Event")
-      .select("financialLocked")
-      .eq("id", finance?.eventId)
-      .single();
+    if (!finance) return NextResponse.json({ error: "Lançamento não encontrado" }, { status: 404 });
+
+    const event = await prisma.event.findUnique({
+      where: { id: finance.eventId },
+      select: { financialLocked: true }
+    });
 
     if (event?.financialLocked) {
       return NextResponse.json({ error: "Financeiro fechado." }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("Finance")
-      .update({
+    const updated = await prisma.finance.update({
+      where: { id },
+      data: {
         amount: Math.abs(Number(amount)),
         description,
         type,
         receiptUrl
-      })
-      .eq("id", id)
-      .select()
-      .single();
+      }
+    });
 
-    if (error) throw error;
-    return NextResponse.json(data);
-  } catch (error) {
+    return NextResponse.json(updated);
+  } catch (error: any) {
     console.error("Finance Update Error:", error);
-    return NextResponse.json({ error: "Erro ao atualizar lançamento." }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao atualizar lançamento.", details: error.message }, { status: 500 });
   }
 }
 
@@ -122,16 +106,29 @@ export async function DELETE(req: Request) {
 
     if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
 
-    const { error } = await supabaseAdmin
-      .from("Finance")
-      .delete()
-      .eq("id", id);
+    const finance = await prisma.finance.findUnique({
+      where: { id },
+      select: { eventId: true }
+    });
 
-    if (error) throw error;
+    if (!finance) return NextResponse.json({ error: "Lançamento não encontrado" }, { status: 404 });
+
+    const event = await prisma.event.findUnique({
+      where: { id: finance.eventId },
+      select: { financialLocked: true }
+    });
+
+    if (event?.financialLocked) {
+      return NextResponse.json({ error: "Não é possível apagar lançamentos de um evento fechado." }, { status: 400 });
+    }
+
+    await prisma.finance.delete({
+      where: { id }
+    });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Finance Delete Error:", error);
-    return NextResponse.json({ error: "Erro ao eliminar despesa." }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao eliminar lançamento.", details: error.message }, { status: 500 });
   }
 }
