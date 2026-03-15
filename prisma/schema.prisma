@@ -4,8 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model City {
@@ -39,6 +37,10 @@ model User {
   
   // For Regional Leaders
   ledCities City[]   @relation("RegionalLeader")
+
+  // For Reset Password
+  resetToken   String?
+  resetExpires DateTime?
 
   logs      AuditLog[]
 }
