@@ -4,6 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model City {
@@ -12,7 +14,7 @@ model City {
   slug             String   @unique
   regionName       String?
   createdAt        DateTime @default(now())
-
+  
   // Relationships
   events           Event[]
   users            User[]   @relation("UserCities")
@@ -42,15 +44,18 @@ model User {
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  date        DateTime
-  location    String
-  capacity    Int      @default(0)
-  price       Float    @default(0)
-  bannerUrl   String?
-  createdAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  date            DateTime
+  location        String
+  capacity        Int      @default(0)
+  price           Float    @default(0)
+  status          String   @default("DRAFT")
+  financialLocked Boolean  @default(false)
+  reportSentAt    DateTime?
+  bannerUrl       String?
+  createdAt       DateTime @default(now())
   
   // Multi-city relation
   cityId      String
