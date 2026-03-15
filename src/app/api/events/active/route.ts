@@ -14,7 +14,7 @@ export async function GET() {
     const today = new Date();
     today.setHours(today.getHours() - 6);
     const todayISO = today.toISOString();
-引导
+
     // Find the nearest LIVE event that is today or in the future
     const { data: event, error } = await supabase
       .from("Event")
