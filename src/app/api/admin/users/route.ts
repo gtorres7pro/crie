@@ -36,7 +36,7 @@ export async function GET() {
     } else if (role === "REGIONAL_LEADER") {
       // Usuários nas cidades que o líder regional lidera
       const ledCities = await prisma.city.findMany({
-        where: { regionalLeaderId: session.user.id },
+        where: { regionalLeaders: { some: { id: session.user.id } } },
         select: { id: true }
       });
       const cityIds = ledCities.map(c => c.id);

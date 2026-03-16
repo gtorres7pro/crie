@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       eventWhere = {
         city: {
           OR: [
-            { regionalLeaderId: session.user.id },
+            { regionalLeaders: { some: { id: session.user.id } } },
             { users: { some: { id: session.user.id } } }
           ]
         }

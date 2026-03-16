@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     } else if (role === "REGIONAL_LEADER") {
       // Apenas cidades lideradas regionalmente
       const ledCities = await prisma.city.findMany({
-        where: { regionalLeaderId: session.user.id },
+        where: { regionalLeaders: { some: { id: session.user.id } } },
         select: { id: true }
       });
       const ledCityIds = ledCities.map(c => c.id);
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     if (role !== "MASTER_ADMIN" && role !== "GLOBAL_LEADER") {
       if (role === "REGIONAL_LEADER") {
          const city = await prisma.city.findFirst({
-           where: { id: cityId, regionalLeaderId: userId }
+           where: { id: cityId, regionalLeaders: { some: { id: userId } } }
          });
          if (!city) return NextResponse.json({ error: "Não tens permissão para esta cidade" }, { status: 403 });
       } else if (!userCityIds.includes(cityId)) {
