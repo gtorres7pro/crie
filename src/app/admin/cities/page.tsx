@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export default function CitiesPage() {
   const { data: session } = useSession();
@@ -30,7 +31,7 @@ export default function CitiesPage() {
     name: "",
     slug: "",
     regionName: "",
-    regionalLeaderId: "",
+    regionalLeaderIds: [] as string[],
     localLeaderIds: [] as string[]
   });
   const [potentialLeaders, setPotentialLeaders] = useState<any[]>([]);
@@ -88,7 +89,7 @@ export default function CitiesPage() {
       setTimeout(() => {
         setIsModalOpen(false);
         fetchCities();
-        setNewCity({ name: "", slug: "", regionName: "", regionalLeaderId: "", localLeaderIds: [] });
+        setNewCity({ name: "", slug: "", regionName: "", regionalLeaderIds: [], localLeaderIds: [] });
         setStatus({ type: "", message: "" });
       }, 1500);
     } catch (error: any) {
@@ -214,21 +215,26 @@ export default function CitiesPage() {
                     </div>
                     <span className="text-white font-black">{city._count.events}</span>
                   </div>
-                  <div className="flex items-center justify-between text-zinc-400">
+                  <Link href="/admin/members" className="flex items-center justify-between text-zinc-400 group/members relative cursor-pointer hover:text-white transition-colors block">
                     <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-tighter">
-                      <Users className="w-4 h-4 text-zinc-600" />
+                      <Users className="w-4 h-4 text-zinc-600 group-hover/members:text-amber-500 transition-colors" />
                       Membros
                     </div>
                     <span className="text-white font-black">{city._count.users}</span>
-                  </div>
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover/members:opacity-100 transition-opacity whitespace-nowrap bg-amber-500 text-black font-black text-[10px] uppercase px-2 py-1 rounded-lg pointer-events-none">
+                      Aceder ao menu Membros
+                    </span>
+                  </Link>
                 </div>
 
                 <div className="mt-auto pt-6 border-t border-zinc-800/50 flex flex-col gap-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Regional</p>
+                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Regionais</p>
                       <p className="text-xs font-bold text-zinc-300 truncate">
-                        {city.regionalLeader?.name || "---"}
+                        {city.regionalLeaders && city.regionalLeaders.length > 0
+                          ? city.regionalLeaders.map((u: any) => u.name).join(", ")
+                          : "---"}
                       </p>
                     </div>
                     <div>
@@ -249,7 +255,7 @@ export default function CitiesPage() {
                             id: city.id,
                             name: city.name,
                             regionName: city.regionName || "",
-                            regionalLeaderId: city.regionalLeaderId || "",
+                            regionalLeaderIds: city.regionalLeaders?.map((u: any) => u.id) || [],
                             localLeaderIds: city.localLeaders?.map((u: any) => u.id) || []
                           });
                           setIsEditModalOpen(true);
@@ -325,18 +331,35 @@ export default function CitiesPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líder Regional (Dedicado)</label>
-                  <select
-                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
-                    value={newCity.regionalLeaderId}
-                    onChange={(e) => setNewCity({...newCity, regionalLeaderId: e.target.value})}
-                  >
-                    <option value="">Nenhum (Opcional)</option>
-                    {potentialLeaders.map(leader => (
-                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.role})</option>
-                    ))}
-                  </select>
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líderes Regionais (Dedicado)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {potentialLeaders.map(leader => {
+                      const isSelected = newCity.regionalLeaderIds.includes(leader.id);
+                      return (
+                        <button
+                          key={'reg-'+leader.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setNewCity({...newCity, regionalLeaderIds: newCity.regionalLeaderIds.filter(id => id !== leader.id)});
+                            } else {
+                              setNewCity({...newCity, regionalLeaderIds: [...newCity.regionalLeaderIds, leader.id]});
+                            }
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all flex items-center gap-2 uppercase tracking-tighter",
+                            isSelected 
+                              ? "bg-amber-500 border-amber-500 text-black" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3" /> : <Shield className="w-3" />}
+                          {leader.name} ({leader.role})
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -439,18 +462,35 @@ export default function CitiesPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líder Regional (Dedicado)</label>
-                  <select
-                    className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500 transition-all font-medium appearance-none"
-                    value={editingCity.regionalLeaderId}
-                    onChange={(e) => setEditingCity({...editingCity, regionalLeaderId: e.target.value})}
-                  >
-                    <option value="">Nenhum (Opcional)</option>
-                    {potentialLeaders.map(leader => (
-                      <option key={leader.id} value={leader.id}>{leader.name} ({leader.role})</option>
-                    ))}
-                  </select>
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">Líderes Regionais (Dedicado)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {potentialLeaders.map(leader => {
+                      const isSelected = editingCity.regionalLeaderIds.includes(leader.id);
+                      return (
+                        <button
+                          key={'reg-'+leader.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setEditingCity({...editingCity, regionalLeaderIds: editingCity.regionalLeaderIds.filter((id: string) => id !== leader.id)});
+                            } else {
+                              setEditingCity({...editingCity, regionalLeaderIds: [...editingCity.regionalLeaderIds, leader.id]});
+                            }
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all flex items-center gap-2 uppercase tracking-tighter",
+                            isSelected 
+                              ? "bg-amber-500 border-amber-500 text-black" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3" /> : <Shield className="w-3" />}
+                          {leader.name} ({leader.role})
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="space-y-3">

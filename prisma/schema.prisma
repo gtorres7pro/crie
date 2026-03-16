@@ -17,9 +17,8 @@ model City {
   events           Event[]
   users            User[]   @relation("UserCities")
   
-  // Regional Leader (optional)
-  regionalLeaderId String?
-  regionalLeader   User?    @relation("RegionalLeader", fields: [regionalLeaderId], references: [id])
+  // Regional Leaders
+  regionalLeaders  User[]   @relation("RegionalLeaders")
 }
 
 model User {
@@ -36,7 +35,7 @@ model User {
   cities    City[]   @relation("UserCities")
   
   // For Regional Leaders
-  ledCities City[]   @relation("RegionalLeader")
+  ledCities City[]   @relation("RegionalLeaders")
 
   // For Reset Password
   resetToken   String?

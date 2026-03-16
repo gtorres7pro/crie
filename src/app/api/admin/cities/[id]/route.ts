@@ -17,14 +17,16 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const { name, regionName, regionalLeaderId, localLeaderIds } = await req.json();
+    const { name, regionName, regionalLeaderIds, localLeaderIds } = await req.json();
 
     const city = await prisma.city.update({
       where: { id },
       data: {
         name,
         regionName,
-        regionalLeaderId: regionalLeaderId || null,
+        regionalLeaders: regionalLeaderIds ? {
+          set: regionalLeaderIds.map((uid: string) => ({ id: uid }))
+        } : undefined,
         users: localLeaderIds ? {
           set: localLeaderIds.map((uid: string) => ({ id: uid }))
         } : undefined
@@ -57,10 +59,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Não é possível excluir uma cidade que possui eventos cadastrados. Exclua os eventos primeiro." }, { status: 400 });
     }
 
-    // Desconectar líderes locais
+    // Desconectar líderes regionais e locais
     await prisma.city.update({
       where: { id },
-      data: { users: { set: [] } }
+      data: { 
+        users: { set: [] },
+        regionalLeaders: { set: [] }
+      }
     });
 
     await prisma.city.delete({ where: { id } });

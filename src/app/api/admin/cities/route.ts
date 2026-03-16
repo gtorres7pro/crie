@@ -21,7 +21,7 @@ export async function GET() {
        // Cidades que lidera ou que está atrelado
        where = {
          OR: [
-           { regionalLeaderId: session.user.id },
+           { regionalLeaders: { some: { id: session.user.id } } },
            { users: { some: { id: session.user.id } } }
          ]
        };
@@ -35,8 +35,8 @@ export async function GET() {
     const cities = await prisma.city.findMany({
       where,
       include: {
-        regionalLeader: {
-          select: { name: true, email: true }
+        regionalLeaders: {
+          select: { id: true, name: true, email: true }
         },
         users: { // Em Prisma, representam os Local Leaders atrelados via UserCities
           select: { id: true, name: true, email: true }
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, slug, regionName, regionalLeaderId, localLeaderIds } = await req.json();
+    const { name, slug, regionName, regionalLeaderIds, localLeaderIds } = await req.json();
 
     if (!name || !slug) {
       return NextResponse.json({ error: "Nome e Slug são obrigatórios" }, { status: 400 });
@@ -83,7 +83,9 @@ export async function POST(req: Request) {
         name,
         slug,
         regionName,
-        regionalLeaderId: regionalLeaderId || null,
+        regionalLeaders: regionalLeaderIds && regionalLeaderIds.length > 0 ? {
+          connect: regionalLeaderIds.map((id: string) => ({ id }))
+        } : undefined,
         users: localLeaderIds && localLeaderIds.length > 0 ? {
           connect: localLeaderIds.map((id: string) => ({ id }))
         } : undefined
