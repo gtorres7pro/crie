@@ -261,9 +261,9 @@ export default function RegistrationPage() {
                 <div>
                   <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Data & Hora</p>
                   <p className="text-zinc-100 font-bold text-lg leading-tight">
-                    {new Date(event.date).toLocaleDateString()}
+                    {new Date(event.date).toLocaleDateString('pt-PT')}
                     <br/>
-                    <span className="text-sm font-medium text-zinc-400">às {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}h</span>
+                    <span className="text-sm font-medium text-zinc-400">às {new Date(event.date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', hour12: false })}h</span>
                   </p>
                 </div>
               </div>

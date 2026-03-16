@@ -131,7 +131,7 @@ export default function AdminPage() {
       a.industry,
       a.event?.title || "N/A",
       a.paymentStatus,
-      new Date(a.createdAt).toLocaleDateString()
+      new Date(a.createdAt).toLocaleDateString('pt-PT')
     ]);
 
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -404,7 +404,7 @@ export default function AdminPage() {
                     <div className="flex items-center gap-3">
                       <div>
                         <p className="font-bold text-white group-hover:text-amber-400 transition-colors">{attendee.name}</p>
-                        <p className="text-xs text-zinc-600 mt-1 font-medium">Inscrito em {new Date(attendee.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs text-zinc-600 mt-1 font-medium">Inscrito em {new Date(attendee.createdAt).toLocaleDateString('pt-PT')}</p>
                       </div>
                       {attendee.paymentProofUrl && (
                         <a 

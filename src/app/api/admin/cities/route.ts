@@ -14,22 +14,22 @@ export async function GET() {
 
   try {
     let where: any = {};
-    
+
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-       // Ver todas
+      // Ver todas
     } else if (role === "REGIONAL_LEADER") {
-       // Cidades que lidera ou que está atrelado
-       where = {
-         OR: [
-           { regionalLeaders: { some: { id: session.user.id } } },
-           { users: { some: { id: session.user.id } } }
-         ]
-       };
+      // Cidades que lidera ou que está atrelado
+      where = {
+        OR: [
+          { regionalLeaders: { some: { id: session.user.id } } },
+          { users: { some: { id: session.user.id } } }
+        ]
+      };
     } else {
-       // Local Leader ou Apoiador: Apenas cidades atreladas
-       where = {
-         users: { some: { id: session.user.id } }
-       };
+      // Local Leader ou Apoiador: Apenas cidades atreladas
+      where = {
+        users: { some: { id: session.user.id } }
+      };
     }
 
     const cities = await prisma.city.findMany({
@@ -66,7 +66,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session || session.user.role !== "MASTER_ADMIN") {
     return NextResponse.json({ error: "Apenas MASTER ADMIN pode criar cidades" }, { status: 403 });
   }

@@ -308,7 +308,7 @@ export default function AdminEventsPage() {
                         )}
                         <div>
                           <p className="font-bold">{event.title}</p>
-                          <p className="text-xs text-zinc-600">{new Date(event.date).toLocaleDateString()}</p>
+                          <p className="text-xs text-zinc-600">{new Date(event.date).toLocaleDateString('pt-PT')}</p>
                         </div>
                       </div>
                     </td>
@@ -782,7 +782,7 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
                    </div>
                    <div>
                       <p className="text-sm font-bold">{f.description}</p>
-                      <p className="text-[10px] text-zinc-600 font-medium uppercase">{f.type} • {new Date(f.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-zinc-600 font-medium uppercase">{f.type} • {new Date(f.createdAt).toLocaleDateString('pt-PT')}</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -911,7 +911,7 @@ function EventCard({ event, onEdit, onDelete }: { event: Event, onEdit: () => vo
       <div>
         <h4 className="text-xl font-bold mb-2 line-clamp-1">{event.title}</h4>
         <div className="flex items-center gap-4 text-xs text-zinc-500">
-           <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString()}</div>
+           <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString('pt-PT')}</div>
            <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {event.location}</div>
         </div>
       </div>

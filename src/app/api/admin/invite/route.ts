@@ -53,7 +53,7 @@ export async function POST(req: Request) {
               
               <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p>📍 <strong>Local:</strong> ${nextEvent.location}</p>
-                <p>📅 <strong>Data:</strong> ${new Date(nextEvent.date).toLocaleDateString()} às ${new Date(nextEvent.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <p>📅 <strong>Data:</strong> ${new Date(nextEvent.date).toLocaleDateString('pt-PT')} às ${new Date(nextEvent.date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', hour12: false })}h</p>
               </div>
 
               <p>Gostaríamos muito de contar com a tua presença novamente!</p>
