@@ -18,13 +18,14 @@ export async function GET(req: Request) {
     const cityId = searchParams.get("cityId");
     const search = searchParams.get("search");
 
-    // Lógica simplificada: como Prisma já lida com relacionamentos, validamos o acesso pelo evento/cidade permitidos
-    let eventWhere: any = {};
+    // Construir o WHERE de forma mais robusta
+    let whereClause: any = {};
+    console.log("Attendee Query Parameters:", { role, eventId, cityId, search });
     
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-      // Todos
+      // Sem restrições iniciais
     } else if (role === "REGIONAL_LEADER") {
-      eventWhere = {
+      whereClause.event = {
         city: {
           OR: [
             { regionalLeaders: { some: { id: session.user.id } } },
@@ -33,30 +34,34 @@ export async function GET(req: Request) {
         }
       };
     } else {
-      eventWhere = {
+      whereClause.event = {
         city: {
           users: { some: { id: session.user.id } }
         }
       };
     }
 
+    // Filtros de ID de evento ou Cidade
     if (eventId && eventId !== "all") {
-      eventWhere.id = eventId;
+      whereClause.eventId = eventId;
     } else if (cityId && cityId !== "all") {
-      eventWhere.cityId = cityId;
+      whereClause.event = { 
+        ...(whereClause.event || {}),
+        cityId: cityId 
+      };
     }
 
-    // Buscar os inscritos cujos eventos correspondem aos critérios
+    // Busca textual
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Buscar os inscritos
     const attendees = await prisma.attendee.findMany({
-      where: {
-        event: eventWhere,
-        ...(search ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } }
-          ]
-        } : {})
-      },
+      where: whereClause,
       include: {
         event: {
           select: { 
@@ -66,12 +71,13 @@ export async function GET(req: Request) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: search ? 10 : 100 // Limitar se for busca para performance
     });
 
     // Buscar os eventos permitidos para o filtro do dropdown
     const events = await prisma.event.findMany({
-      where: role === "MASTER_ADMIN" || role === "GLOBAL_LEADER" ? {} : eventWhere,
+      where: role === "MASTER_ADMIN" || role === "GLOBAL_LEADER" ? {} : (whereClause.event || {}),
       select: { id: true, title: true, date: true, cityId: true },
       orderBy: { date: 'desc' }
     });

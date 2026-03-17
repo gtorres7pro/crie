@@ -137,14 +137,15 @@ function MembersContent() {
 
     setSearchingGuests(true);
     try {
+      console.log(`Searching for guest: ${val}`);
       const res = await fetch(`/api/admin/attendees?search=${encodeURIComponent(val)}`);
       const data = await res.json();
+      console.log(`Found ${data.attendees?.length || 0} attendees`);
       if (data.attendees) {
-        // Filtrar apenas convidados (que não são membros já - embora o filtro isMember seja calculado no frontend no dashboard, aqui vamos pegar todos e o usuário escolhe)
         setGuestResults(data.attendees.slice(0, 5));
       }
     } catch (err) {
-      console.error(err);
+      console.error("Guest Search Error:", err);
     } finally {
       setSearchingGuests(false);
     }
@@ -456,24 +457,30 @@ function MembersContent() {
                  </div>
 
                  <AnimatePresence>
-                    {guestResults.length > 0 && (
+                    {(guestResults.length > 0 || (guestSearch.length >= 3 && !searchingGuests)) && (
                       <motion.div 
                         initial={{ opacity: 0, y: -10 }} 
                         animate={{ opacity: 1, y: 0 }} 
                         exit={{ opacity: 0, y: -10 }}
                         className="absolute left-0 right-0 top-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden z-[110] shadow-2xl"
                       >
-                         {guestResults.map(g => (
-                           <button 
-                             key={g.id}
-                             type="button"
-                             onClick={() => selectGuest(g)}
-                             className="w-full text-left px-5 py-3 hover:bg-amber-500 hover:text-black transition-all group"
-                           >
-                              <p className="font-bold text-sm">{g.name}</p>
-                              <p className="text-[10px] opacity-70 group-hover:opacity-100">{g.email} • {g.industry}</p>
-                           </button>
-                         ))}
+                         {guestResults.length > 0 ? (
+                           guestResults.map(g => (
+                             <button 
+                               key={g.id}
+                               type="button"
+                               onClick={() => selectGuest(g)}
+                               className="w-full text-left px-5 py-3 hover:bg-amber-500 hover:text-black transition-all group"
+                             >
+                                <p className="font-bold text-sm">{g.name}</p>
+                                <p className="text-[10px] opacity-70 group-hover:opacity-100">{g.email} • {g.industry}</p>
+                             </button>
+                           ))
+                         ) : (
+                            <div className="px-5 py-4 text-zinc-500 text-xs font-bold text-center italic">
+                               Convidado não encontrado na base de inscritos.
+                            </div>
+                         )}
                       </motion.div>
                     )}
                  </AnimatePresence>
