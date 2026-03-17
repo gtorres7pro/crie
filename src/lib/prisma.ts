@@ -20,7 +20,7 @@ if (typeof window === 'undefined') {
     ssl: connectionString.includes('db.xtjpxemtsnulcrhwnmbg.supabase.co') ? { rejectUnauthorized: false } : undefined
   });
   
-  const adapter = new PrismaPg(pool);
+  const adapter = new PrismaPg(pool as any);
   prismaClient = globalForPrisma.prisma ?? new PrismaClient({ adapter: adapter as any });
 } else {
   prismaClient = globalForPrisma.prisma ?? new PrismaClient();
