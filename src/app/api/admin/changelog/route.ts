@@ -13,12 +13,15 @@ export async function GET(req: Request) {
   }
 
   try {
+    console.log("FETCHING CHANGELOG...");
     const changes = await prisma.changelog.findMany({
       orderBy: { createdAt: 'desc' }
     });
+    console.log("CHANGELOG COUNT:", changes.length);
     return NextResponse.json(changes);
   } catch (error: any) {
-    return NextResponse.json({ error: "Erro ao buscar atualizações." }, { status: 500 });
+    console.error("Changelog GET Error:", error);
+    return NextResponse.json({ error: "Erro ao buscar atualizações.", details: error.message }, { status: 500 });
   }
 }
 
