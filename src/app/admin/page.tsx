@@ -503,8 +503,7 @@ export default function AdminPage() {
                            if (attendee.isMember) {
                               window.location.href = "/admin/members";
                            } else {
-                              // Simplified change: opening edit or just alerting for now as members need more info
-                              alert("Para tornar este convidado um membro, adicione-o no menu 'Membros'.");
+                              window.location.href = `/admin/members?add=true&search=${encodeURIComponent(attendee.name)}`;
                            }
                          }}
                          className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded transition-all"

@@ -16,6 +16,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get("eventId");
     const cityId = searchParams.get("cityId");
+    const search = searchParams.get("search");
 
     // Lógica simplificada: como Prisma já lida com relacionamentos, validamos o acesso pelo evento/cidade permitidos
     let eventWhere: any = {};
@@ -48,7 +49,13 @@ export async function GET(req: Request) {
     // Buscar os inscritos cujos eventos correspondem aos critérios
     const attendees = await prisma.attendee.findMany({
       where: {
-        event: eventWhere
+        event: eventWhere,
+        ...(search ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } }
+          ]
+        } : {})
       },
       include: {
         event: {

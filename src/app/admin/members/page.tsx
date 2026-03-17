@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { 
   Users, 
   UserPlus, 
@@ -42,7 +43,17 @@ interface Member {
 }
 
 export default function MembersPage() {
+  return (
+    <Suspense fallback={<div className="p-20 flex justify-center"><Loader2 className="w-10 h-10 animate-spin text-amber-500" /></div>}>
+      <MembersContent />
+    </Suspense>
+  );
+}
+
+function MembersContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +72,10 @@ export default function MembersPage() {
     cityId: ""
   });
 
+  const [guestSearch, setGuestSearch] = useState("");
+  const [guestResults, setGuestResults] = useState<any[]>([]);
+  const [searchingGuests, setSearchingGuests] = useState(false);
+
   const [editingMember, setEditingMember] = useState<any>(null);
   const [paymentData, setPaymentData] = useState({
     memberId: "",
@@ -76,6 +91,18 @@ export default function MembersPage() {
   useEffect(() => {
     fetchMembers();
     fetchCities();
+
+    // Check query params to auto-open modal
+    const add = searchParams.get("add");
+    const searchVal = searchParams.get("search");
+    if (add === "true") {
+       setIsModalOpen(true);
+       if (searchVal) {
+          handleGuestSearch(searchVal);
+       }
+       // Limpar URL
+       router.replace("/admin/members", { scroll: false });
+    }
   }, [selectedCityId]);
 
   const fetchMembers = async () => {
@@ -99,6 +126,41 @@ export default function MembersPage() {
     } catch (error) {
       console.error("Error fetching cities:", error);
     }
+  };
+
+  const handleGuestSearch = async (val: string) => {
+    setGuestSearch(val);
+    if (val.length < 3) {
+      setGuestResults([]);
+      return;
+    }
+
+    setSearchingGuests(true);
+    try {
+      const res = await fetch(`/api/admin/attendees?search=${encodeURIComponent(val)}`);
+      const data = await res.json();
+      if (data.attendees) {
+        // Filtrar apenas convidados (que não são membros já - embora o filtro isMember seja calculado no frontend no dashboard, aqui vamos pegar todos e o usuário escolhe)
+        setGuestResults(data.attendees.slice(0, 5));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSearchingGuests(false);
+    }
+  };
+
+  const selectGuest = (guest: any) => {
+    setNewMember({
+      name: guest.name,
+      email: guest.email,
+      phone: guest.phone || "",
+      company: guest.company || "",
+      industry: guest.industry || "",
+      cityId: guest.event?.cityId || ""
+    });
+    setGuestResults([]);
+    setGuestSearch("");
   };
 
   const handleCreateMember = async (e: React.FormEvent) => {
@@ -379,6 +441,46 @@ export default function MembersPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-[32px] p-8 shadow-2xl">
               <h2 className="text-2xl font-black text-white mb-8 uppercase tracking-tight">Novo Membro CRIE</h2>
+              
+              <div className="mb-6 relative">
+                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-2 mb-2 block">Buscar nos Inscritos (Opcional)</label>
+                 <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+                    <input 
+                      placeholder="Pesquisar convidado por nome..." 
+                      className="w-full bg-[#111111] border border-zinc-800 rounded-2xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-amber-500 text-sm"
+                      value={guestSearch}
+                      onChange={(e) => handleGuestSearch(e.target.value)}
+                    />
+                    {searchingGuests && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 animate-spin" />}
+                 </div>
+
+                 <AnimatePresence>
+                    {guestResults.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute left-0 right-0 top-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden z-[110] shadow-2xl"
+                      >
+                         {guestResults.map(g => (
+                           <button 
+                             key={g.id}
+                             type="button"
+                             onClick={() => selectGuest(g)}
+                             className="w-full text-left px-5 py-3 hover:bg-amber-500 hover:text-black transition-all group"
+                           >
+                              <p className="font-bold text-sm">{g.name}</p>
+                              <p className="text-[10px] opacity-70 group-hover:opacity-100">{g.email} • {g.industry}</p>
+                           </button>
+                         ))}
+                      </motion.div>
+                    )}
+                 </AnimatePresence>
+              </div>
+
+              <div className="h-px bg-zinc-900 mb-6" />
+
               <form onSubmit={handleCreateMember} className="space-y-4">
                 <input required placeholder="Nome Completo" className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500" value={newMember.name} onChange={(e) => setNewMember({...newMember, name: e.target.value})}/>
                 <input required type="email" placeholder="Email" className="w-full bg-[#111111] border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-amber-500" value={newMember.email} onChange={(e) => setNewMember({...newMember, email: e.target.value})}/>
