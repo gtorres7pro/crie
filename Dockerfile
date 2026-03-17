@@ -12,8 +12,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Disable telemetry during build
-ENV NEXT_TELEMETRY_DISABLED=1
+ARG DATABASE_URL
+ARG DIRECT_URL
+ENV DATABASE_URL=$DATABASE_URL
+ENV DIRECT_URL=$DIRECT_URL
 
 RUN npx prisma generate
 RUN npm run build

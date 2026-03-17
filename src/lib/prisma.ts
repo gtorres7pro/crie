@@ -9,15 +9,15 @@ const globalForPrisma = global as unknown as {
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not defined in .env");
+  console.warn("⚠️ DATABASE_URL não encontrada (.env). O build continuará, mas verifique as variáveis de ambiente no deploy.");
 }
 
 let prismaClient: PrismaClient;
 
 if (typeof window === 'undefined') {
   const pool = new Pool({ 
-    connectionString,
-    ssl: connectionString.includes('db.xtjpxemtsnulcrhwnmbg.supabase.co') ? { rejectUnauthorized: false } : undefined
+    connectionString: connectionString || "",
+    ssl: connectionString?.includes('db.xtjpxemtsnulcrhwnmbg.supabase.co') ? { rejectUnauthorized: false } : undefined
   });
   
   const adapter = new PrismaPg(pool as any);
