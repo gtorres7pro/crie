@@ -68,20 +68,26 @@ export default function AdminPage() {
   
   // History State
   const [historyEmail, setHistoryEmail] = useState<string | null>(null);
+  const [historyName, setHistoryName] = useState<string | null>(null);
+  const [historyIsMember, setHistoryIsMember] = useState<boolean>(false);
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  async function openHistory(email: string) {
+  async function openHistory(email: string, name: string) {
     setHistoryEmail(email);
+    setHistoryName(name);
     setLoadingHistory(true);
     setHistoryRecords([]);
     try {
       const res = await fetch(`/api/admin/attendees?search=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
-        // Filtrar apenas o email exato pra garantir (pois search busca name tbm)
         const exact = (data.attendees || []).filter((a: any) => a.email.toLowerCase() === email.toLowerCase());
         setHistoryRecords(exact);
+        // Verificar se é membro no registro mais recente ou em qualquer um retornado pela busca
+        if (exact.length > 0) {
+          setHistoryIsMember(exact[0].isMember);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -608,7 +614,7 @@ export default function AdminPage() {
                                </button>
                                <button
                                  onClick={() => {
-                                   openHistory(attendee.email);
+                                   openHistory(attendee.email, attendee.name);
                                    setActiveMenuId(null);
                                  }}
                                  className="w-full text-left px-4 py-3 text-xs font-bold text-zinc-300 hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2"
@@ -713,7 +719,15 @@ export default function AdminPage() {
               <div className="flex justify-between items-center mb-6">
                  <div>
                    <h3 className="text-xl font-black uppercase text-amber-500">Histórico de Eventos</h3>
-                   <p className="text-zinc-400 text-sm">{historyEmail}</p>
+                   <div className="flex items-center gap-2 mt-1">
+                     <p className="text-white font-bold">{historyName}</p>
+                     <span className={`px-2 py-0.5 text-[10px] uppercase font-black rounded-md ${
+                        historyIsMember ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                     }`}>
+                       {historyIsMember ? 'Membro' : 'Convidado'}
+                     </span>
+                   </div>
+                   <p className="text-zinc-500 text-xs mt-0.5">{historyEmail}</p>
                  </div>
                  <button onClick={() => setHistoryEmail(null)} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
                     <X className="w-5 h-5 text-white" />

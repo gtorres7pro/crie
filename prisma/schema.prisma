@@ -114,3 +114,24 @@ model AuditLog {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 }
+
+model Changelog {
+  id          String   @id @default(cuid())
+  version     String?
+  type        String   @default("FEATURE") // FEATURE, BUGFIX, IMPROVEMENT
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  userName    String
+  userEmail   String
+  type        String   @default("SUGGESTION") // BUG, SUGGESTION, ADJUSTMENT
+  subject     String
+  message     String
+  attachments String?  // URLs separadas por vírgula
+  status      String   @default("PENDING") // PENDING, REVIEWED, COMPLETED
+  createdAt   DateTime @default(now())
+}

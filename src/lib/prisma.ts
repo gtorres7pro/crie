@@ -1,9 +1,30 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 const globalForPrisma = global as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
 
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not defined in .env");
+}
+
+let prismaClient: PrismaClient;
+
+if (typeof window === 'undefined') {
+  const pool = new Pool({ 
+    connectionString,
+    ssl: connectionString.includes('db.xtjpxemtsnulcrhwnmbg.supabase.co') ? { rejectUnauthorized: false } : undefined
+  });
+  
+  const adapter = new PrismaPg(pool);
+  prismaClient = globalForPrisma.prisma ?? new PrismaClient({ adapter: adapter as any });
+} else {
+  prismaClient = globalForPrisma.prisma ?? new PrismaClient();
+}
+
+export const prisma = prismaClient;
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

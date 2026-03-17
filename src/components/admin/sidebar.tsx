@@ -16,7 +16,8 @@ import {
   Users2,
   Menu,
   X,
-  Star
+  Star,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,6 +36,7 @@ export default function Sidebar() {
     { name: "Usuários", href: "/admin/users", icon: Users2, show: ["MASTER_ADMIN", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
     { name: "Cidades", href: "/admin/cities", icon: MapPin, show: ["MASTER_ADMIN", "GLOBAL_LEADER"].includes(role as string) },
     { name: "Relatórios", href: "/admin/reports", icon: BarChart3, show: ["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
+    { name: "Atualizações", href: "/admin/updates", icon: Sparkles, show: ["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
   ];
 
   const sidebarContent = (

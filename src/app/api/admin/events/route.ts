@@ -78,8 +78,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(eventsWithStats);
   } catch (error: any) {
-    console.error("Events GET API Error:", error);
-    return NextResponse.json({ error: "Erro ao buscar eventos.", details: error.message }, { status: 500 });
+    console.error("Events GET API Error (FULL DETAILS):", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    if (error.cause) console.error("CAUSE:", error.cause);
+    return NextResponse.json({ error: "Erro ao buscar eventos.", details: error.message, code: error.code }, { status: 500 });
   }
 }
 
