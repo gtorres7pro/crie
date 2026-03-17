@@ -84,7 +84,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { id, paymentStatus, presenceStatus } = await req.json();
+    const { id, paymentStatus, presenceStatus, name, email, phone, industry } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
@@ -93,11 +93,16 @@ export async function PATCH(req: Request) {
     const updateData: any = {};
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (presenceStatus) updateData.presenceStatus = presenceStatus;
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (industry) updateData.industry = industry;
 
     const data = await prisma.attendee.update({
       where: { id },
       data: updateData
     });
+
 
     return NextResponse.json(data);
   } catch (error: any) {

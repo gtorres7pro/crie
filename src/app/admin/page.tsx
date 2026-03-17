@@ -55,6 +55,38 @@ export default function AdminPage() {
   const [sending, setSending] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+
+  async function handleSaveEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingAttendee) return;
+    
+    setUpdatingId(editingAttendee.id);
+    try {
+      const res = await fetch("/api/admin/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          id: editingAttendee.id,
+          name: editingAttendee.name,
+          email: editingAttendee.email,
+          phone: editingAttendee.phone,
+          industry: editingAttendee.industry
+        }),
+      });
+      if (res.ok) {
+        setAttendees(prev => prev.map(a => a.id === editingAttendee.id ? editingAttendee : a));
+        setEditingAttendee(null);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao editar");
+      }
+    } catch (err) {
+      alert("Erro de conexão");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
 
   async function handleInvite() {
     setSending(true);
@@ -489,6 +521,16 @@ export default function AdminPage() {
                              >
                                <button
                                  onClick={() => {
+                                   setEditingAttendee(attendee);
+                                   setActiveMenuId(null);
+                                 }}
+                                 className="w-full text-left px-4 py-3 text-xs font-bold text-zinc-300 hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2"
+                               >
+                                 <FileText className="w-4 h-4" />
+                                 EDITAR DADOS
+                               </button>
+                               <button
+                                 onClick={() => {
                                    cycleStatus(attendee.id, attendee.paymentStatus);
                                    setActiveMenuId(null);
                                  }}
@@ -563,6 +605,53 @@ export default function AdminPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Edit Attendee Modal */}
+      <AnimatePresence>
+        {editingAttendee && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setEditingAttendee(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-[32px] p-8 shadow-2xl"
+            >
+              <h3 className="text-2xl font-black uppercase mb-6">Editar Inscrito</h3>
+              <form onSubmit={handleSaveEdit} className="space-y-4">
+                <div>
+                  <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1 block">Nome</label>
+                  <input type="text" required value={editingAttendee.name} onChange={e => setEditingAttendee({...editingAttendee, name: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 text-sm"/>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1 block">E-mail</label>
+                  <input type="email" required value={editingAttendee.email} onChange={e => setEditingAttendee({...editingAttendee, email: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 text-sm"/>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1 block">WhatsApp</label>
+                  <input type="text" required value={editingAttendee.phone} onChange={e => setEditingAttendee({...editingAttendee, phone: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 text-sm"/>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1 block">Área / Indústria</label>
+                  <input type="text" required value={editingAttendee.industry} onChange={e => setEditingAttendee({...editingAttendee, industry: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 text-sm"/>
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" disabled={updatingId === editingAttendee.id} className="flex-1 py-3 bg-white text-black font-black uppercase rounded-xl hover:bg-zinc-200 transition-all text-sm flex justify-center items-center">
+                    {updatingId === editingAttendee.id ? <RefreshCcw className="w-4 h-4 animate-spin"/> : "Guardar"}
+                  </button>
+                  <button type="button" onClick={() => setEditingAttendee(null)} className="px-6 py-3 bg-zinc-900 text-zinc-400 font-black uppercase rounded-xl hover:text-white transition-all text-sm">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
