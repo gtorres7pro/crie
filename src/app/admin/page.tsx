@@ -19,7 +19,9 @@ import {
   MapPin,
   Trash2,
   Star,
-  Users
+  Users,
+  X,
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,30 @@ export default function AdminPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  
+  // History State
+  const [historyEmail, setHistoryEmail] = useState<string | null>(null);
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  async function openHistory(email: string) {
+    setHistoryEmail(email);
+    setLoadingHistory(true);
+    setHistoryRecords([]);
+    try {
+      const res = await fetch(`/api/admin/attendees?search=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Filtrar apenas o email exato pra garantir (pois search busca name tbm)
+        const exact = (data.attendees || []).filter((a: any) => a.email.toLowerCase() === email.toLowerCase());
+        setHistoryRecords(exact);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
 
   async function handleSaveEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -582,6 +608,16 @@ export default function AdminPage() {
                                </button>
                                <button
                                  onClick={() => {
+                                   openHistory(attendee.email);
+                                   setActiveMenuId(null);
+                                 }}
+                                 className="w-full text-left px-4 py-3 text-xs font-bold text-zinc-300 hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2"
+                               >
+                                 <RefreshCcw className="w-4 h-4" />
+                                 VER HISTÓRICO
+                               </button>
+                               <button
+                                 onClick={() => {
                                    cycleStatus(attendee.id, attendee.paymentStatus);
                                    setActiveMenuId(null);
                                  }}
@@ -651,6 +687,68 @@ export default function AdminPage() {
                 >
                   Sair
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* History Modal */}
+      <AnimatePresence>
+        {historyEmail && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setHistoryEmail(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[#111] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col max-h-[80vh]"
+            >
+              <div className="flex justify-between items-center mb-6">
+                 <div>
+                   <h3 className="text-xl font-black uppercase text-amber-500">Histórico de Eventos</h3>
+                   <p className="text-zinc-400 text-sm">{historyEmail}</p>
+                 </div>
+                 <button onClick={() => setHistoryEmail(null)} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
+                    <X className="w-5 h-5 text-white" />
+                 </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {loadingHistory ? (
+                   <div className="py-10 flex justify-center"><Loader2 className="w-8 h-8 text-amber-500 animate-spin" /></div>
+                ) : historyRecords.length === 0 ? (
+                   <div className="text-center py-10 text-zinc-500">Nenhum evento encontrado.</div>
+                ) : (
+                   historyRecords.map(r => (
+                     <div key={r.id} className="p-4 bg-zinc-900/50 border border-zinc-800/80 rounded-2xl flex flex-col justify-between">
+                        <div>
+                          <p className="font-bold text-sm text-white">{r.event?.title || "Evento Desconhecido"}</p>
+                          <p className="text-xs text-zinc-500 mt-1">{r.event?.city?.name}</p>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                           <span className={`px-2 py-1 text-[10px] uppercase font-black rounded-lg ${
+                              r.paymentStatus === 'Pago' ? 'bg-amber-500/10 text-amber-500' :
+                              r.paymentStatus === 'Gratuito' ? 'bg-zinc-800 text-zinc-300' :
+                              'bg-rose-500/10 text-rose-500'
+                           }`}>
+                             {r.paymentStatus}
+                           </span>
+                           <span className={`px-2 py-1 text-[10px] uppercase font-black rounded-lg ${
+                              r.presenceStatus ? 'bg-green-500/10 text-green-500' : 'bg-zinc-800 text-zinc-400'
+                           }`}>
+                             {r.presenceStatus ? 'PRESENTE' : 'AUSENTE'}
+                           </span>
+                        </div>
+                     </div>
+                   ))
+                )}
               </div>
             </motion.div>
           </div>

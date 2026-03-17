@@ -18,14 +18,12 @@ export async function GET(req: Request) {
     const cityId = searchParams.get("cityId");
     const search = searchParams.get("search");
 
-    // Construir o WHERE de forma mais robusta
-    let whereClause: any = {};
-    console.log("Attendee Query Parameters:", { role, eventId, cityId, search });
-    
+    // Lógica original de permissões
+    let eventWhere: any = {};
     if (role === "MASTER_ADMIN" || role === "GLOBAL_LEADER") {
-      // Sem restrições iniciais
+      eventWhere = {};
     } else if (role === "REGIONAL_LEADER") {
-      whereClause.event = {
+      eventWhere = {
         city: {
           OR: [
             { regionalLeaders: { some: { id: session.user.id } } },
@@ -34,26 +32,25 @@ export async function GET(req: Request) {
         }
       };
     } else {
-      whereClause.event = {
-        city: {
-          users: { some: { id: session.user.id } }
-        }
+      eventWhere = {
+        city: { users: { some: { id: session.user.id } } }
       };
     }
 
-    // Filtros de ID de evento ou Cidade
+    // Merge de CityId
+    if (cityId && cityId !== "all") {
+      eventWhere.cityId = cityId;
+    }
+
+    // Filtro global para attendees
+    const where: any = { event: eventWhere };
     if (eventId && eventId !== "all") {
-      whereClause.eventId = eventId;
-    } else if (cityId && cityId !== "all") {
-      whereClause.event = { 
-        ...(whereClause.event || {}),
-        cityId: cityId 
-      };
+      where.eventId = eventId;
     }
 
-    // Busca textual
-    if (search) {
-      whereClause.OR = [
+    // Busca textual - apenas se tiver 3+ chars
+    if (search && search.trim().length >= 3) {
+      where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } }
       ];
@@ -61,30 +58,26 @@ export async function GET(req: Request) {
 
     // Buscar os inscritos
     const attendees = await prisma.attendee.findMany({
-      where: whereClause,
+      where,
       include: {
         event: {
-          select: { 
-            title: true, 
-            cityId: true,
-            city: { select: { name: true } }
-          }
+          select: { title: true, cityId: true, city: { select: { name: true } } }
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: search ? 10 : 100 // Limitar se for busca para performance
+      take: (search && search.trim().length >= 3) ? 15 : 100
     });
 
-    // Buscar os eventos permitidos para o filtro do dropdown
+    // Buscar os eventos permitidos para o filtro do dropdown (sem a busca de texto)
     const events = await prisma.event.findMany({
-      where: role === "MASTER_ADMIN" || role === "GLOBAL_LEADER" ? {} : (whereClause.event || {}),
+      where: role === "MASTER_ADMIN" || role === "GLOBAL_LEADER" ? {} : eventWhere,
       select: { id: true, title: true, date: true, cityId: true },
       orderBy: { date: 'desc' }
     });
     
-    // Check members
     const members = await prisma.member.findMany({ select: { email: true } });
     const memberEmails = new Set(members.map(m => m.email.toLowerCase()));
+    
     const attendeesWithMemberStatus = attendees.map(a => ({
       ...a,
       isMember: memberEmails.has(a.email.toLowerCase())
