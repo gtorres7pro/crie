@@ -12,7 +12,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { eventId, amount, description, notes, receiptUrl, type } = await req.json();
+    const bodyText = await req.text();
+    import('fs').then(fs => fs.appendFileSync('finance_log.txt', new Date().toISOString() + ' : ' + bodyText + '\n'));
+    const body = JSON.parse(bodyText);
+    const { eventId, amount, description, notes, receiptUrl, type } = body;
 
     if (!eventId || !amount || !description || !type) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -28,10 +31,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Este evento está com o financeiro fechado." }, { status: 400 });
     }
 
+    const numericAmount = typeof amount === "string" ? parseFloat(amount.replace(',', '.')) : Number(amount);
+
     const finance = await prisma.finance.create({
       data: {
         eventId,
-        amount: Math.abs(Number(amount)),
+        amount: Math.abs(numericAmount),
         description,
         notes,
         receiptUrl,
@@ -41,10 +46,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(finance);
   } catch (error: any) {
-    console.error("Finance Create Error:", error);
-    return NextResponse.json({ error: "Erro ao adicionar lançamento.", details: error.message }, { status: 500 });
+    console.error("Finance Create Error Detailed:", error);
+    return NextResponse.json({ error: "Erro ao adicionar lançamento.", details: error.message + " - " + String(error) }, { status: 500 });
   }
 }
+
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
@@ -75,10 +81,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Financeiro fechado." }, { status: 400 });
     }
 
+    const numericAmount = typeof amount === "string" ? parseFloat(amount.replace(',', '.')) : Number(amount);
+
     const updated = await prisma.finance.update({
       where: { id },
       data: {
-        amount: Math.abs(Number(amount)),
+        amount: Math.abs(numericAmount),
         description,
         type,
         receiptUrl

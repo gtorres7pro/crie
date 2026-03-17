@@ -582,7 +582,7 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
           (e.target as HTMLFormElement).reset();
         } else {
           const err = await res.json();
-          setError(err.error);
+          setError(err.error + (err.details ? " - " + err.details : ""));
         }
       }
     } catch (err) {
