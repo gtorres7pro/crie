@@ -1,0 +1,1 @@
+2026-03-17T11:24:29.933Z : {"description":"Hotel Manuel","amount":"81.50","type":"Despesa","receiptUrl":null,"eventId":"48de7207-41a0-4288-964f-d78016bf75f6"}
