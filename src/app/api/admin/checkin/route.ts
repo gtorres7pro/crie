@@ -21,13 +21,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const eventIdParam = searchParams.get("eventId");
+
     // Buscar o evento ativo
     let eventQuery = supabaseAdmin
       .from("Event")
       .select("id, title")
-      .eq("status", "LIVE")
       .order("date", { ascending: true })
       .limit(1);
+
+    if (eventIdParam) {
+       eventQuery = eventQuery.eq("id", eventIdParam);
+    } else {
+       eventQuery = eventQuery.eq("status", "LIVE");
+    }
 
     // Filter by city if not global
     if (["LOCAL_LEADER", "APOIADOR"].includes(role as string) && userCityIds.length > 0) {

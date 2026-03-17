@@ -52,7 +52,11 @@ export async function GET(req: Request) {
       },
       include: {
         event: {
-          select: { title: true, cityId: true }
+          select: { 
+            title: true, 
+            cityId: true,
+            city: { select: { name: true } }
+          }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -64,9 +68,17 @@ export async function GET(req: Request) {
       select: { id: true, title: true, date: true, cityId: true },
       orderBy: { date: 'desc' }
     });
+    
+    // Check members
+    const members = await prisma.member.findMany({ select: { email: true } });
+    const memberEmails = new Set(members.map(m => m.email.toLowerCase()));
+    const attendeesWithMemberStatus = attendees.map(a => ({
+      ...a,
+      isMember: memberEmails.has(a.email.toLowerCase())
+    }));
 
     return NextResponse.json({
-      attendees,
+      attendees: attendeesWithMemberStatus,
       events
     });
   } catch (error: any) {

@@ -48,18 +48,18 @@ export async function POST(req: Request) {
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
               <h2 style="color: #f59e0b;">Olá, ${c.name}!</h2>
-              <p>Temos o prazer de te convidar para o nosso próximo encontro: <strong>${nextEvent.title}</strong>.</p>
+              <p>Temos o prazer de convidar você para o nosso próximo encontro: <strong>${nextEvent.title}</strong>.</p>
               <p>${nextEvent.description || "Um momento de networking e crescimento em Braga."}</p>
               
               <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p>📍 <strong>Local:</strong> ${nextEvent.location}</p>
-                <p>📅 <strong>Data:</strong> ${new Date(nextEvent.date).toLocaleDateString('pt-PT')} às ${new Date(nextEvent.date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', hour12: false })}h</p>
+                <p>📅 <strong>Data:</strong> ${new Date(nextEvent.date).toLocaleDateString('pt-BR')} às ${new Date(nextEvent.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false })}h</p>
               </div>
 
-              <p>Gostaríamos muito de contar com a tua presença novamente!</p>
+              <p>Gostaríamos muito de contar com a sua presença novamente!</p>
               <a href="${process.env.NEXTAUTH_URL}" style="display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">Ver Detalhes e Inscrever</a>
               
-              <p style="margin-top: 30px; font-size: 12px; color: #9ca3af;">Equipa CRIE Braga</p>
+              <p style="margin-top: 30px; font-size: 12px; color: #9ca3af;">Equipe CRIE Braga</p>
             </div>
           `
         });

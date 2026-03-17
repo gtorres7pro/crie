@@ -17,7 +17,9 @@ import {
   UserCheck,
   CreditCard,
   MapPin,
-  Trash2
+  Trash2,
+  Star,
+  Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -32,7 +34,11 @@ interface Attendee {
   presenceStatus: string;
   paymentProofUrl?: string;
   createdAt: string;
-  event?: { title: string };
+  event?: { 
+    title: string;
+    city?: { name: string };
+  };
+  isMember?: boolean;
 }
 
 interface EventRef {
@@ -45,6 +51,7 @@ export default function AdminPage() {
   const [events, setEvents] = useState<EventRef[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("all");
   const [selectedCityId, setSelectedCityId] = useState<string>("all");
+  const [selectedMemberStatus, setSelectedMemberStatus] = useState<string>("all");
   const [accessibleCities, setAccessibleCities] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -113,7 +120,7 @@ export default function AdminPage() {
   }
 
   async function handleDeleteAttendee(id: string) {
-    if (!confirm("Tem a certeza que deseja cancelar esta inscrição? O participante será removido apenas deste evento.")) {
+    if (!confirm("Tem certeza que deseja cancelar esta inscrição? O participante será removido apenas deste evento.")) {
       return;
     }
 
@@ -155,15 +162,15 @@ export default function AdminPage() {
       ? attendees.filter(a => selectedIds.has(a.id))
       : filteredAttendees;
 
-    const headers = ["Nome", "Email", "Telefone", "Area", "Evento", "Pagamento", "Data Inscricao"];
+    const headers = ["Nome", "Email", "Telefone", "Tipo", "Cidade", "Industria", "Data Inscricao"];
     const rows = dataToExport.map(a => [
       a.name,
       a.email,
       a.phone,
+      a.isMember ? "Membro" : "Convidado",
+      a.event?.city?.name || "N/A",
       a.industry,
-      a.event?.title || "N/A",
-      a.paymentStatus,
-      new Date(a.createdAt).toLocaleDateString('pt-PT')
+      new Date(a.createdAt).toLocaleDateString('pt-BR')
     ]);
 
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -255,17 +262,20 @@ export default function AdminPage() {
     }
   }
 
-  const filteredAttendees = (attendees || []).filter(a => 
-    a.name?.toLowerCase().includes(search.toLowerCase()) ||
-    a.email?.toLowerCase().includes(search.toLowerCase()) ||
-    a.industry?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredAttendees = (attendees || []).filter(a => {
+    const searchMatch = a.name?.toLowerCase().includes(search.toLowerCase()) ||
+                        a.email?.toLowerCase().includes(search.toLowerCase()) ||
+                        a.industry?.toLowerCase().includes(search.toLowerCase());
+    const memberMatch = selectedMemberStatus === "all" || 
+                        (selectedMemberStatus === "member" && a.isMember) ||
+                        (selectedMemberStatus === "guest" && !a.isMember);
+    return searchMatch && memberMatch;
+  });
 
   const stats = {
     total: attendees?.length || 0,
-    pago: (attendees || []).filter(a => a.paymentStatus === "Pago").length,
-    gratuito: (attendees || []).filter(a => a.paymentStatus === "Gratuito").length,
-    pendente: (attendees || []).filter(a => a.paymentStatus === "Pendente").length,
+    membros: (attendees || []).filter(a => a.isMember).length,
+    convidados: (attendees || []).filter(a => !a.isMember).length,
   };
 
   return (
@@ -318,9 +328,8 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
         {[
           { label: "Total Inscritos", value: stats.total, color: "text-white" },
-          { label: "Pagos", value: stats.pago, color: "text-green-500" },
-          { label: "Gratuitos", value: stats.gratuito, color: "text-blue-500" },
-          { label: "Pendentes", value: stats.pendente, color: "text-amber-500" },
+          { label: "Membros", value: stats.membros, color: "text-amber-500" },
+          { label: "Convidados", value: stats.convidados, color: "text-blue-500" },
         ].map((s, i) => (
           <div key={i} className="bg-[#0f0f0f] border border-zinc-800/80 p-8 rounded-3xl shadow-sm">
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">{s.label}</p>
@@ -361,6 +370,18 @@ export default function AdminPage() {
                 </select>
               </div>
             )}
+            <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 w-full sm:min-w-[150px]">
+              <Users className="w-3 h-3 text-zinc-600" />
+              <select 
+                value={selectedMemberStatus}
+                onChange={(e) => setSelectedMemberStatus(e.target.value)}
+                className="bg-transparent text-xs font-bold uppercase tracking-tight text-zinc-400 focus:outline-none w-full py-2 appearance-none cursor-pointer"
+              >
+                <option value="all">TODOS OS TIPOS</option>
+                <option value="member">MEMBROS</option>
+                <option value="guest">CONVIDADOS</option>
+              </select>
+            </div>
             <div className="flex items-center gap-2 bg-black border border-zinc-800 rounded-2xl px-4 py-1.5 w-full sm:min-w-[200px]">
               <Filter className="w-3 h-3 text-zinc-600" />
               <select 
@@ -393,16 +414,17 @@ export default function AdminPage() {
                 </th>
                 <th className="px-8 py-5">Participante</th>
                 <th className="px-8 py-5">Contatos</th>
-                {selectedEventId === "all" && <th className="px-8 py-5">Evento</th>}
-                <th className="px-8 py-5">Área / Indústria</th>
-                <th className="px-8 py-5 text-center">Pagamento</th>
+                <th className="px-8 py-5">Tipo</th>
+                <th className="px-8 py-5">Cidade</th>
+                <th className="px-8 py-5">Indústria</th>
+                <th className="px-8 py-5 text-center">Status Pag.</th>
                 <th className="px-8 py-5"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
               {loading ? (
                 <tr>
-                  <td colSpan={selectedEventId === "all" ? 7 : 6} className="px-8 py-20 text-center">
+                  <td colSpan={8} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
                       <p className="text-zinc-500 text-sm font-medium animate-pulse uppercase tracking-widest">Carregando base de dados...</p>
@@ -411,7 +433,7 @@ export default function AdminPage() {
                 </tr>
               ) : filteredAttendees.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedEventId === "all" ? 7 : 6} className="px-8 py-20 text-center text-zinc-500">
+                  <td colSpan={8} className="px-8 py-20 text-center text-zinc-500">
                     Nenhum inscrito encontrado.
                   </td>
                 </tr>
@@ -435,18 +457,25 @@ export default function AdminPage() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="font-bold text-white group-hover:text-amber-400 transition-colors">{attendee.name}</p>
-                        <p className="text-xs text-zinc-600 mt-1 font-medium">Inscrito em {new Date(attendee.createdAt).toLocaleDateString('pt-PT')}</p>
+                        <p className="font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
+                          {attendee.name}
+                          {attendee.isMember && (
+                            <span title="Membro CRIE">
+                              <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-zinc-600 mt-1 font-medium">Inscrito em {new Date(attendee.createdAt).toLocaleDateString('pt-BR')}</p>
                       </div>
                       {attendee.paymentProofUrl && (
                         <a 
                           href={attendee.paymentProofUrl}
                           target="_blank"
                           className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400/20 transition-all flex items-center gap-1"
-                          title="Ver Comprovativo"
+                          title="Ver Comprovante"
                         >
                           <FileText className="w-3 x-3" />
-                          <span className="text-[8px] font-black uppercase">Recibo</span>
+                          <span className="text-[8px] font-black uppercase">Comprovante</span>
                         </a>
                       )}
                     </div>
@@ -461,13 +490,36 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </td>
-                  {selectedEventId === "all" && (
-                    <td className="px-8 py-6">
-                       <p className="text-xs font-bold text-zinc-500 uppercase tracking-tighter truncate max-w-[150px]">
-                        {attendee.event?.title}
-                       </p>
-                    </td>
-                  )}
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-2">
+                       {attendee.isMember ? (
+                         <span className="px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[9px] font-black uppercase">Membro</span>
+                       ) : (
+                         <span className="px-2 py-1 bg-zinc-800 text-zinc-500 border border-zinc-700 rounded text-[9px] font-black uppercase">Convidado</span>
+                       )}
+                       <button 
+                         onClick={() => {
+                           // Logic to toggle or go to member page
+                           if (attendee.isMember) {
+                              window.location.href = "/admin/members";
+                           } else {
+                              // Simplified change: opening edit or just alerting for now as members need more info
+                              alert("Para tornar este convidado um membro, adicione-o no menu 'Membros'.");
+                           }
+                         }}
+                         className="p-1.5 text-zinc-600 hover:text-white hover:bg-zinc-800 rounded transition-all"
+                         title="Alterar status de membro"
+                       >
+                         <RefreshCcw className="w-3 h-3" />
+                       </button>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                      <MapPin className="w-3 h-3 text-zinc-600" />
+                      {attendee.event?.city?.name || "N/A"}
+                    </div>
+                  </td>
                   <td className="px-8 py-6">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-bold text-zinc-300">
                       <Briefcase className="w-3 h-3 text-amber-500" />
@@ -581,8 +633,8 @@ export default function AdminPage() {
             >
               <h3 className="text-2xl font-black uppercase mb-4">Enviar Convites</h3>
               <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
-                Estás prestes a enviar um convite para o próximo evento LIVE para <span className="text-amber-500 font-bold">{selectedIds.size} pessoas</span> selecionadas. 
-                O email incluirá os detalhes do evento e um link de inscrição.
+                Você esta prestes a enviar um convite para o próximo evento LIVE para <span className="text-amber-500 font-bold">{selectedIds.size} pessoas</span> selecionadas. 
+                O e-mail incluirá os detalhes do evento e um link de inscrição.
               </p>
               
               <div className="flex gap-3">
@@ -640,7 +692,7 @@ export default function AdminPage() {
                 
                 <div className="flex gap-3 pt-4">
                   <button type="submit" disabled={updatingId === editingAttendee.id} className="flex-1 py-3 bg-white text-black font-black uppercase rounded-xl hover:bg-zinc-200 transition-all text-sm flex justify-center items-center">
-                    {updatingId === editingAttendee.id ? <RefreshCcw className="w-4 h-4 animate-spin"/> : "Guardar"}
+                    {updatingId === editingAttendee.id ? <RefreshCcw className="w-4 h-4 animate-spin"/> : "Salvar"}
                   </button>
                   <button type="button" onClick={() => setEditingAttendee(null)} className="px-6 py-3 bg-zinc-900 text-zinc-400 font-black uppercase rounded-xl hover:text-white transition-all text-sm">
                     Cancelar

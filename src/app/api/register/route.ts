@@ -123,7 +123,7 @@ export async function POST(req: Request) {
         html: getRegistrationEmailHtml({
           name: data.name,
           eventTitle: event.title,
-          eventDate: new Date(event.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + 'h',
+          eventDate: new Date(event.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + 'h',
           eventLocation: event.location,
           eventPrice: event.price,
           bannerUrl: event.bannerUrl,

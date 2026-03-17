@@ -15,7 +15,8 @@ import {
   MapPin,
   Users2,
   Menu,
-  X
+  X,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +29,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: "Inscritos", href: "/admin", icon: Users, show: ["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
+    { name: "Membros", href: "/admin/members", icon: Star, show: ["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
     { name: "Eventos", href: "/admin/events", icon: Calendar, show: ["MASTER_ADMIN", "GLOBAL_LEADER", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },
     { name: "Check-in", href: "/admin/checkin", icon: CheckSquare, show: true },
     { name: "Usuários", href: "/admin/users", icon: Users2, show: ["MASTER_ADMIN", "REGIONAL_LEADER", "LOCAL_LEADER"].includes(role as string) },

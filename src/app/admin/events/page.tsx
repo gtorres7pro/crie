@@ -1,5 +1,7 @@
 "use client";
 
+import NextLink from "next/link";
+
 import { useEffect, useState } from "react";
 import { 
   Plus, 
@@ -61,6 +63,8 @@ interface Event {
   };
   bannerUrl?: string;
   finances: any[];
+  city?: { name: string };
+  cityId?: string;
 }
 
 export default function AdminEventsPage() {
@@ -69,7 +73,7 @@ export default function AdminEventsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Partial<Event> | null>(null);
-  const [activeTab, setActiveTab] = useState<"general" | "finance">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "finance" | "checkin">("general");
   const [error, setError] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string>("all");
   const [accessibleCities, setAccessibleCities] = useState<any[]>([]);
@@ -183,7 +187,7 @@ export default function AdminEventsPage() {
         setEditingEvent(null);
         fetchEvents();
       } else {
-        setError(result.error || "Erro ao guardar evento.");
+        setError(result.error || "Erro ao salvar evento.");
       }
     } catch (err) {
       console.error(err);
@@ -200,11 +204,11 @@ export default function AdminEventsPage() {
         setEvents(events.filter(e => e.id !== id));
       } else {
         const data = await res.json();
-        setError(data.error || "Erro ao eliminar evento.");
+        setError(data.error || "Erro ao excluir evento.");
       }
     } catch (err) {
       console.error(err);
-      setError("Erro de rede ao eliminar evento.");
+      setError("Erro de rede ao excluir evento.");
     }
   }
 
@@ -291,8 +295,9 @@ export default function AdminEventsPage() {
             <thead>
               <tr className="bg-zinc-900/40 text-[10px] uppercase tracking-widest text-zinc-600 font-black border-b border-zinc-900">
                 <th className="px-8 py-5">Evento</th>
+                <th className="px-8 py-5">Cidade</th>
                 <th className="px-8 py-5">Resultados</th>
-                <th className="px-8 py-5">Taxa de Conversão</th>
+                <th className="px-8 py-5">Taxa de Presença</th>
                 <th className="px-8 py-5"></th>
               </tr>
             </thead>
@@ -308,9 +313,15 @@ export default function AdminEventsPage() {
                         )}
                         <div>
                           <p className="font-bold">{event.title}</p>
-                          <p className="text-xs text-zinc-600">{new Date(event.date).toLocaleDateString('pt-PT')}</p>
+                          <p className="text-xs text-zinc-600">{new Date(event.date).toLocaleDateString('pt-BR')}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-400">
+                         <MapPin className="w-3 h-3 text-zinc-600" />
+                         {event.city?.name || "N/A"}
+                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex gap-4">
@@ -384,6 +395,10 @@ export default function AdminEventsPage() {
                       onClick={() => setActiveTab("finance")}
                       className={cn("px-4 py-2 text-[10px] font-black rounded-lg transition-all", activeTab === "finance" ? "bg-amber-500 text-black shadow-lg" : "text-zinc-500")}
                     >FINANCEIRO</button>
+                    <button 
+                      onClick={() => setActiveTab("checkin")}
+                      className={cn("px-4 py-2 text-[10px] font-black rounded-lg transition-all", activeTab === "checkin" ? "bg-amber-500 text-black shadow-lg" : "text-zinc-500")}
+                    >CHECK-IN</button>
                   </div>
                 )}
               </div>
@@ -498,11 +513,11 @@ export default function AdminEventsPage() {
                       className="flex-1 py-4 bg-amber-500 text-black font-black rounded-2xl disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {submitting && <Clock className="w-4 h-4 animate-spin" />}
-                      {submitting ? "A GUARDAR..." : "Guardar Alterações"}
+                      {submitting ? "SALVANDO..." : "Salvar Alterações"}
                     </button>
                   </div>
                 </form>
-              ) : (
+              ) : activeTab === "finance" ? (
                 <div className="space-y-6">
                   <FinanceModule 
                     event={editingEvent as Event} 
@@ -517,7 +532,46 @@ export default function AdminEventsPage() {
                     Fechar
                   </button>
                 </div>
-              )}
+              ) : activeTab === "checkin" && editingEvent ? (
+                <div className="space-y-6">
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-3xl">
+                         <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Total Inscritos</p>
+                         <p className="text-2xl font-black text-white">{editingEvent.stats?.total || 0}</p>
+                      </div>
+                      <div className="p-4 bg-zinc-950 border border-green-500/20 rounded-3xl">
+                         <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Presentes</p>
+                         <p className="text-2xl font-black text-green-500">{editingEvent.stats?.present || 0}</p>
+                      </div>
+                      <div className="p-4 bg-zinc-950 border border-red-500/20 rounded-3xl">
+                         <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Faltaram</p>
+                         <p className="text-2xl font-black text-red-500">{editingEvent.stats?.missing || 0}</p>
+                      </div>
+                      <div className="p-4 bg-zinc-950 border border-amber-500/20 rounded-3xl">
+                         <p className="text-[9px] font-black text-zinc-500 uppercase mb-1">Taxa Check-in</p>
+                         <p className="text-2xl font-black text-amber-500">
+                            {editingEvent.stats?.total ? Math.round(((editingEvent.stats?.present || 0) / editingEvent.stats?.total) * 100) : 0}%
+                         </p>
+                      </div>
+                   </div>
+                   
+                   <NextLink 
+                      href={`/admin/checkin?eventId=${editingEvent.id}`}
+                      className="w-full flex items-center justify-center py-4 bg-amber-500 text-black font-black uppercase tracking-widest rounded-2xl gap-2 hover:bg-amber-400 transition-colors"
+                   >
+                      <CheckCircle2 className="w-5 h-5 group-hover:hidden" />
+                      Abrir Painel de Check-in
+                   </NextLink>
+                   
+                   <button 
+                     type="button" 
+                     onClick={() => { setShowModal(false); setError(null); }} 
+                     className="w-full py-4 bg-zinc-900 text-white font-bold rounded-2xl border border-zinc-800 hover:bg-zinc-800 transition-colors"
+                   >
+                     Fechar
+                   </button>
+                </div>
+              ) : null}
             </motion.div>
           </div>
         )}
@@ -598,12 +652,12 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
       await fetch(`/api/admin/finances?id=${id}`, { method: "DELETE" });
       onUpdate();
     } catch (err) {
-      setError("Erro ao eliminar despesa");
+      setError("Erro ao excluir despesa");
     }
   }
 
   async function sendReport() {
-    if (!confirm("Confirmas o fecho financeiro deste evento? Isto enviará um email aos administradores e trancará os valores.")) return;
+    if (!confirm("Você confirma o fechamento financeiro deste evento? Isto enviará um e-mail aos administradores e bloqueará os valores.")) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/admin/events/${event.id}/report`, { method: "POST" });
@@ -620,7 +674,7 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
   }
 
   async function unlockFinance() {
-    if (!confirm("Tens a certeza que queres reabrir o financeiro? Será necessário enviar um novo relatório para fechar novamente.")) return;
+    if (!confirm("Tem certeza que deseja reabrir o financeiro? Será necessário enviar um novo relatório para fechar novamente.")) return;
     try {
       const res = await fetch(`/api/admin/events/${event.id}`, {
         method: "PATCH",
@@ -782,7 +836,7 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
                    </div>
                    <div>
                       <p className="text-sm font-bold">{f.description}</p>
-                      <p className="text-[10px] text-zinc-600 font-medium uppercase">{f.type} • {new Date(f.createdAt).toLocaleDateString('pt-PT')}</p>
+                      <p className="text-[10px] text-zinc-600 font-medium uppercase">{f.type} • {new Date(f.createdAt).toLocaleDateString('pt-BR')}</p>
                    </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -825,7 +879,7 @@ function FinanceModule({ event, onUpdate, setError }: { event: Event, onUpdate: 
              </div>
            ))}
            {(!event.finances || event.finances.length === 0) && (
-             <p className="py-8 text-center text-xs text-zinc-700 italic">Nenhuma despesa manual registada.</p>
+             <p className="py-8 text-center text-xs text-zinc-700 italic">Nenhuma despesa manual registrada.</p>
            )}
         </div>
       </div>
@@ -866,7 +920,7 @@ function EventCard({ event, onEdit, onDelete }: { event: Event, onEdit: () => vo
           >
             <AlertCircle className="w-10 h-10 text-red-500 mb-2" />
             <p className="text-sm font-bold uppercase tracking-tight">Cuidado!</p>
-            <p className="text-xs text-zinc-400">Tens a certeza que queres eliminar o evento <span className="text-white">"{event.title}"</span>?</p>
+            <p className="text-xs text-zinc-400">Tem certeza que deseja excluir o evento <span className="text-white">"{event.title}"</span>?</p>
             <div className="flex gap-2 w-full pt-2">
                <button 
                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }}
@@ -878,7 +932,7 @@ function EventCard({ event, onEdit, onDelete }: { event: Event, onEdit: () => vo
                  onClick={(e) => { e.stopPropagation(); onDelete(); setConfirmDelete(false); }}
                  className="flex-1 py-3 bg-red-600 rounded-xl text-xs font-bold"
                >
-                 Eliminar
+                 Excluir
                </button>
             </div>
           </motion.div>
@@ -910,9 +964,17 @@ function EventCard({ event, onEdit, onDelete }: { event: Event, onEdit: () => vo
 
       <div>
         <h4 className="text-xl font-bold mb-2 line-clamp-1">{event.title}</h4>
-        <div className="flex items-center gap-4 text-xs text-zinc-500">
-           <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString('pt-PT')}</div>
-           <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {event.location}</div>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+           <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString('pt-BR')}</div>
+           <div className="flex items-center gap-1.5 min-w-0">
+             <MapPin className="w-3.5 h-3.5 shrink-0" /> 
+             <span className="truncate">{event.location}</span>
+             {event.city?.name && (
+               <span className="ml-2 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-bold text-[9px] uppercase tracking-widest text-zinc-400 shrink-0">
+                 {event.city.name}
+               </span>
+             )}
+           </div>
         </div>
       </div>
 
@@ -941,7 +1003,7 @@ function EventCard({ event, onEdit, onDelete }: { event: Event, onEdit: () => vo
         onClick={(e) => { e.stopPropagation(); onEdit(); }}
         className="w-full py-4 text-xs font-bold text-zinc-400 border border-zinc-800 rounded-2xl hover:bg-zinc-900 transition-colors uppercase tracking-widest"
       >
-        Gerir Detalhes
+        Gerenciar Detalhes
       </button>
     </motion.div>
   );

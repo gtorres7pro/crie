@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       include: {
         city: { select: { name: true } },
         attendees: { select: { id: true, presenceStatus: true, paymentStatus: true } },
-        finances: { select: { id: true, type: true, amount: true } }
+        finances: { select: { id: true, type: true, amount: true, createdAt: true, description: true, notes: true, receiptUrl: true } }
       },
       orderBy: { date: 'asc' }
     });
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
     const eventsWithStats = events.map((event: any) => {
       const totalAttendees = event.attendees?.length || 0;
       const present = event.attendees?.filter((a: any) => a.presenceStatus === "Presente").length || 0;
-      const missing = event.attendees?.filter((a: any) => a.presenceStatus === "Faltou").length || 0;
+      const missing = totalAttendees - present;
       const salesRevenue = event.attendees?.filter((a: any) => a.paymentStatus === "Pago").length * (event.price || 0);
       const manualRevenue = event.finances?.filter((f: any) => f.type === "Receita").reduce((acc: number, f: any) => acc + f.amount, 0) || 0;
       const manualExpenses = event.finances?.filter((f: any) => f.type === "Despesa").reduce((acc: number, f: any) => acc + f.amount, 0) || 0;

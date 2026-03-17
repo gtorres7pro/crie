@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Users, 
   Search, 
@@ -32,6 +33,16 @@ interface Attendee {
 }
 
 export default function CheckinPanel() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" /></div>}>
+      <CheckinPanelContent />
+    </Suspense>
+  )
+}
+
+function CheckinPanelContent() {
+  const searchParams = useSearchParams();
+  const explicitEventId = searchParams.get("eventId");
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [eventTitle, setEventTitle] = useState("");
   const [eventId, setEventId] = useState("");
@@ -46,7 +57,8 @@ export default function CheckinPanel() {
 
   async function fetchData() {
     try {
-      const res = await fetch("/api/admin/checkin");
+      const url = explicitEventId ? `/api/admin/checkin?eventId=${explicitEventId}` : "/api/admin/checkin";
+      const res = await fetch(url);
       const data = await res.json();
       if (data.attendees) {
         setAttendees(data.attendees);
@@ -154,7 +166,7 @@ export default function CheckinPanel() {
                 href={attendee.paymentProofUrl} 
                 target="_blank" 
                 className="p-1.5 bg-amber-400/10 text-amber-400 rounded-lg border border-amber-400/20 hover:bg-amber-400/20"
-                title="Ver Recibo"
+                title="Ver Comprovante"
               >
                 <FileText className="w-3 h-3" />
               </a>
@@ -258,7 +270,7 @@ export default function CheckinPanel() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-amber-400 transition-colors" />
             <input 
               type="text" 
-              placeholder="Procurar por nome ou email..."
+              placeholder="Pesquisar por nome ou e-mail..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-900/40 border border-zinc-800 rounded-[32px] pl-16 pr-8 py-6 focus:outline-none focus:ring-2 focus:ring-amber-400/20 focus:border-amber-400/50 transition-all font-medium text-lg placeholder:text-zinc-600"

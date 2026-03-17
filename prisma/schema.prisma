@@ -7,93 +7,101 @@ datasource db {
 }
 
 model City {
-  id               String   @id @default(cuid())
-  name             String
-  slug             String   @unique
-  regionName       String?
-  createdAt        DateTime @default(now())
-  
-  // Relationships
-  events           Event[]
-  users            User[]   @relation("UserCities")
-  
-  // Regional Leaders
-  regionalLeaders  User[]   @relation("RegionalLeaders")
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  regionName      String?
+  createdAt       DateTime @default(now())
+  events          Event[]
+  members         Member[]
+  regionalLeaders User[]   @relation("RegionalLeaders")
+  users           User[]   @relation("UserCities")
+}
+
+model Member {
+  id        String          @id @default(cuid())
+  name      String
+  email     String          @unique
+  phone     String
+  company   String?
+  industry  String?
+  status    String          @default("Ativo")
+  createdAt DateTime        @default(now())
+  cityId    String
+  city      City            @relation(fields: [cityId], references: [id])
+  payments  MemberPayment[]
+}
+
+model MemberPayment {
+  id          String   @id @default(cuid())
+  amount      Float
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String
-  password  String
-  // MASTER_ADMIN | GLOBAL_LEADER | REGIONAL_LEADER | LOCAL_LEADER | APOIADOR
-  role      String   @default("APOIADOR")
-  createdAt DateTime @default(now())
-  
-  // Multi-city relationships
-  cities    City[]   @relation("UserCities")
-  
-  // For Regional Leaders
-  ledCities City[]   @relation("RegionalLeaders")
-
-  // For Reset Password
-  resetToken   String?
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  phone        String
+  password     String
+  role         String     @default("APOIADOR")
+  createdAt    DateTime   @default(now())
   resetExpires DateTime?
-
-  logs      AuditLog[]
+  resetToken   String?
+  logs         AuditLog[]
+  ledCities    City[]     @relation("RegionalLeaders")
+  cities       City[]     @relation("UserCities")
 }
 
 model Event {
-  id              String   @id @default(cuid())
+  id              String     @id @default(cuid())
   title           String
   description     String?
   date            DateTime
   location        String
-  capacity        Int      @default(0)
-  price           Float    @default(0)
-  status          String   @default("DRAFT")
-  financialLocked Boolean  @default(false)
+  capacity        Int        @default(0)
+  price           Float      @default(0)
+  status          String     @default("DRAFT")
+  createdAt       DateTime   @default(now())
+  financialLocked Boolean    @default(false)
   reportSentAt    DateTime?
+  cityId          String
   bannerUrl       String?
-  createdAt       DateTime @default(now())
-  
-  // Multi-city relation
-  cityId      String
-  city        City     @relation(fields: [cityId], references: [id])
-
-  attendees   Attendee[]
-  finances    Finance[]
+  attendees       Attendee[]
+  city            City       @relation(fields: [cityId], references: [id])
+  finances        Finance[]
 }
 
 model Attendee {
-  id             String   @id @default(cuid())
-  name           String
-  phone          String
-  email          String
-  company        String?
-  industry       String
-  interests      String[]
-  paymentStatus  String   @default("Pendente") // Pendente | Pago | Gratuito
-  presenceStatus String   @default("Pendente") // Pendente | Presente | Faltou
+  id              String   @id @default(cuid())
+  name            String
+  phone           String
+  email           String
+  company         String?
+  industry        String
+  interests       String[]
+  paymentStatus   String   @default("Pendente")
+  presenceStatus  String   @default("Pendente")
+  createdAt       DateTime @default(now())
+  eventId         String
   paymentProofUrl String?
-  createdAt      DateTime @default(now())
-  
-  eventId        String
-  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([email, eventId])
 }
 
 model Finance {
   id          String   @id @default(cuid())
-  type        String   // Receita | Despesa
+  type        String
   amount      Float
   description String
   notes       String?
   receiptUrl  String?
   createdAt   DateTime @default(now())
-  
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
@@ -103,7 +111,6 @@ model AuditLog {
   action    String
   details   String?
   createdAt DateTime @default(now())
-  
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 }
