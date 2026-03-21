@@ -138,7 +138,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, id: feedback.id });
   } catch (error: any) {
-    console.error("Feedback API error:", error);
-    return NextResponse.json({ error: "Erro ao processar feedback.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao processar feedback." }, { status: 500 });
   }
 }

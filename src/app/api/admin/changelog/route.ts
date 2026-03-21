@@ -3,6 +3,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const changelogSchema = z.object({
+  type: z.enum(["Feature", "Bugfix", "Improvement"]),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  version: z.string().optional(),
+});
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -13,15 +21,15 @@ export async function GET(req: Request) {
   }
 
   try {
-    console.log("FETCHING CHANGELOG...");
     const changes = await prisma.changelog.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    console.log("CHANGELOG COUNT:", changes.length);
-    return NextResponse.json(changes);
-  } catch (error: any) {
+    return NextResponse.json(changes, {
+      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' }
+    });
+  } catch (error) {
     console.error("Changelog GET Error:", error);
-    return NextResponse.json({ error: "Erro ao buscar atualizações.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao buscar atualizações." }, { status: 500 });
   }
 }
 
@@ -34,12 +42,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { type, title, description, version } = await req.json();
+    const body = await req.json();
+    const parsed = changelogSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos.", issues: parsed.error.flatten() }, { status: 400 });
+    }
+
     const entry = await prisma.changelog.create({
-      data: { type, title, description, version }
+      data: parsed.data
     });
     return NextResponse.json(entry);
-  } catch (error: any) {
+  } catch (error) {
+    console.error("Changelog POST Error:", error);
     return NextResponse.json({ error: "Erro ao criar atualização." }, { status: 500 });
   }
 }

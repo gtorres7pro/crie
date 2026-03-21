@@ -3,6 +3,17 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const patchSchema = z.object({
+  id: z.string().min(1),
+  paymentStatus: z.enum(["Pendente", "Pago", "Isento"]).optional(),
+  presenceStatus: z.enum(["Pendente", "Presente", "Ausente"]).optional(),
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  industry: z.string().optional(),
+});
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -75,10 +86,15 @@ export async function GET(req: Request) {
       orderBy: { date: 'desc' }
     });
     
-    const members = await prisma.member.findMany({ select: { email: true } });
-    const memberEmails = new Set(members.map(m => m.email.toLowerCase()));
+    // Efficiently check member status: only query emails present in the result set
+    const attendeeEmails = attendees.map((a) => a.email.toLowerCase());
+    const memberRecords = await prisma.member.findMany({
+      where: { email: { in: attendeeEmails, mode: 'insensitive' } },
+      select: { email: true }
+    });
+    const memberEmails = new Set(memberRecords.map((m) => m.email.toLowerCase()));
     
-    const attendeesWithMemberStatus = attendees.map(a => ({
+    const attendeesWithMemberStatus = attendees.map((a) => ({
       ...a,
       isMember: memberEmails.has(a.email.toLowerCase())
     }));
@@ -89,7 +105,7 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error("Attendees GET API Error:", error);
-    return NextResponse.json({ error: "Erro ao buscar dados.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao buscar dados." }, { status: 500 });
   }
 }
 
@@ -102,30 +118,31 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { id, paymentStatus, presenceStatus, name, email, phone, industry } = await req.json();
-
-    if (!id) {
-      return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
+    const body = await req.json();
+    const parsed = patchSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos.", issues: parsed.error.flatten() }, { status: 400 });
     }
 
-    const updateData: any = {};
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
-    if (presenceStatus) updateData.presenceStatus = presenceStatus;
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (phone) updateData.phone = phone;
-    if (industry) updateData.industry = industry;
+    const { id, paymentStatus, presenceStatus, name, email, phone, industry } = parsed.data;
+
+    const updateData: Record<string, string | undefined> = {};
+    if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
+    if (presenceStatus !== undefined) updateData.presenceStatus = presenceStatus;
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (industry !== undefined) updateData.industry = industry;
 
     const data = await prisma.attendee.update({
       where: { id },
       data: updateData
     });
 
-
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("Dashboard Patch Error:", error);
-    return NextResponse.json({ error: "Erro ao atualizar dados.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao atualizar dados." }, { status: 500 });
   }
 }
 
@@ -152,6 +169,6 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Delete Attendee Error:", error);
-    return NextResponse.json({ error: "Erro ao cancelar inscrição.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao cancelar inscrição." }, { status: 500 });
   }
 }

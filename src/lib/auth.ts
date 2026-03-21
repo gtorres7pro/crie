@@ -1,9 +1,7 @@
 import { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
 
 // Estendendo os tipos de sessão
 declare module "next-auth" {
@@ -17,7 +15,6 @@ declare module "next-auth" {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: "jwt",
   },
@@ -32,66 +29,37 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        const { createClient } = require('@supabase/supabase-js');
-        const fs = require('fs');
-        const log = (msg: string) => {
-          try {
-            fs.appendFileSync('/tmp/auth_debug.log', `[${new Date().toISOString()}] ${msg}\n`);
-          } catch (e) {}
-        };
-
-        log(`SUPABASE CLIENT: Login attempt for: ${credentials?.email}`);
         if (!credentials?.email || !credentials?.password) return null;
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!supabaseUrl || !supabaseServiceKey) {
-          log("CRITICAL ERROR: Supabase env vars missing during authorize");
-          return null;
-        }
-
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
         try {
-          // Fetch user
-          const { data: user, error: userError } = await supabaseAdmin
-            .from('User')
-            .select('id, name, email, password, role')
-            .ilike('email', credentials.email.trim())
-            .single();
-          
-          if (userError || !user) {
-            log(`User not found or error: ${userError?.message || 'Unknown'}`);
-            return null;
-          }
+          // Fetch user via Prisma (single DB stack)
+          const user = await prisma.user.findFirst({
+            where: { email: { contains: credentials.email.trim(), mode: 'insensitive' } },
+            select: { id: true, name: true, email: true, password: true, role: true }
+          });
+
+          if (!user || !user.password) return null;
 
           const isPassValid = await bcrypt.compare(credentials.password, user.password);
-          log(`Password valid: ${isPassValid}`);
+          if (!isPassValid) return null;
 
-          if (!isPassValid) {
-            log(`Password mismatch`);
-            return null;
-          }
+          // Fetch city associations
+          const userCities = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { cities: { select: { id: true } } }
+          });
 
-          // Fetch cities
-          const { data: userCities, error: cityError } = await supabaseAdmin
-            .from('_UserCities')
-            .select('B')
-            .eq('A', user.id);
-          
-          const cityIds = userCities ? userCities.map((c: any) => c.B) : [];
-          log(`User cities found: ${cityIds.join(', ')}`);
+          const cityIds = userCities?.cities?.map((c) => c.id) ?? [];
 
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
-            cityIds
+            cityIds,
           };
-        } catch (err: any) {
-          log(`AUTH ERROR SUPABASE CLIENT: ${err.message}`);
+        } catch (err) {
+          console.error("[Auth] Login error:", err);
           return null;
         }
       },

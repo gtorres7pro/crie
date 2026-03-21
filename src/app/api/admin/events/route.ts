@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const createEventSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  date: z.string().min(1),
+  location: z.string().min(1),
+  cityId: z.string().min(1),
+  capacity: z.coerce.number().int().min(0).default(0),
+  price: z.coerce.number().min(0).default(0),
+  status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED"]).default("DRAFT"),
+  bannerUrl: z.string().url().optional().or(z.literal("")),
+});
 
 // GET: List all events with summary stats
 export async function GET(req: Request) {
@@ -45,23 +58,37 @@ export async function GET(req: Request) {
       include: {
         city: { select: { name: true } },
         attendees: { select: { id: true, presenceStatus: true, paymentStatus: true } },
-        finances: { select: { id: true, type: true, amount: true, createdAt: true, description: true, notes: true, receiptUrl: true } }
+        _count: { select: { finances: true } }
       },
       orderBy: { date: 'asc' }
     });
+
+    // Fetch finance aggregates separately (much lighter than full records)
+    const eventIds = events.map((e: any) => e.id);
+    const financeAggregates = await prisma.finance.groupBy({
+      by: ['eventId', 'type'],
+      where: { eventId: { in: eventIds } },
+      _sum: { amount: true }
+    });
+
+    const financeMap = new Map<string, { revenue: number; expenses: number }>();
+    for (const f of financeAggregates) {
+      const existing = financeMap.get(f.eventId) ?? { revenue: 0, expenses: 0 };
+      if (f.type === 'Receita') existing.revenue += f._sum.amount ?? 0;
+      if (f.type === 'Despesa') existing.expenses += f._sum.amount ?? 0;
+      financeMap.set(f.eventId, existing);
+    }
 
     // Process stats for each event
     const eventsWithStats = events.map((event: any) => {
       const totalAttendees = event.attendees?.length || 0;
       const present = event.attendees?.filter((a: any) => a.presenceStatus === "Presente").length || 0;
       const missing = totalAttendees - present;
-      const salesRevenue = event.attendees?.filter((a: any) => a.paymentStatus === "Pago").length * (event.price || 0);
-      const manualRevenue = event.finances?.filter((f: any) => f.type === "Receita").reduce((acc: number, f: any) => acc + f.amount, 0) || 0;
-      const manualExpenses = event.finances?.filter((f: any) => f.type === "Despesa").reduce((acc: number, f: any) => acc + f.amount, 0) || 0;
-      
-      const totalRevenue = salesRevenue + manualRevenue;
-      const totalExpenses = manualExpenses;
-      
+      const salesRevenue = (event.attendees?.filter((a: any) => a.paymentStatus === "Pago").length || 0) * (event.price || 0);
+      const finTotals = financeMap.get(event.id) ?? { revenue: 0, expenses: 0 };
+      const totalRevenue = salesRevenue + finTotals.revenue;
+      const totalExpenses = finTotals.expenses;
+
       return {
         ...event,
         stats: {
@@ -78,9 +105,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(eventsWithStats);
   } catch (error: any) {
-    console.error("Events GET API Error (FULL DETAILS):", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-    if (error.cause) console.error("CAUSE:", error.cause);
-    return NextResponse.json({ error: "Erro ao buscar eventos.", details: error.message, code: error.code }, { status: 500 });
+    console.error("Events GET API Error:", error);
+    return NextResponse.json({ error: "Erro ao buscar eventos." }, { status: 500 });
   }
 }
 
@@ -97,11 +123,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, description, date, location, capacity, price, status, bannerUrl, cityId } = body;
-
-    if (!title || !date || !location || !cityId) {
-      return NextResponse.json({ error: "Título, data, local e cidade são obrigatórios" }, { status: 400 });
+    const parsed = createEventSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos.", issues: parsed.error.flatten() }, { status: 400 });
     }
+    const { title, description, date, location, capacity, price, status, bannerUrl, cityId } = parsed.data;
 
     // Validação de permissão para criar evento na cidade
     if (role !== "MASTER_ADMIN" && role !== "GLOBAL_LEADER") {
@@ -121,10 +147,10 @@ export async function POST(req: Request) {
         description,
         date: new Date(date),
         location,
-        capacity: Number(capacity),
-        price: Number(price),
-        status: status || "DRAFT",
-        bannerUrl,
+        capacity,
+        price,
+        status,
+        bannerUrl: bannerUrl || null,
         cityId
       }
     });
@@ -132,6 +158,6 @@ export async function POST(req: Request) {
     return NextResponse.json(event);
   } catch (error: any) {
     console.error("Create Event Error:", error);
-    return NextResponse.json({ error: "Erro ao criar evento.", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao criar evento." }, { status: 500 });
   }
 }
